@@ -35,8 +35,19 @@ void main() async {
   const AndroidInitializationSettings initializationSettingsAndroid =
   AndroidInitializationSettings('@mipmap/ic_launcher');
 
+  const DarwinInitializationSettings iosSettings =
+  DarwinInitializationSettings();
+
+  const WindowsInitializationSettings windowsSettings = WindowsInitializationSettings(
+    appName: 'WeGoTour',
+    appUserModelId: 'com.wegotour.app',
+    guid: 'b3ea77c3-e332-4bc6-9e61-59c91d63e85d',
+  );
+
   const InitializationSettings initializationSettings = InitializationSettings(
     android: initializationSettingsAndroid,
+    iOS: iosSettings,
+    windows: windowsSettings,
   );
 
   await flutterLocalNotificationsPlugin.initialize(initializationSettings);

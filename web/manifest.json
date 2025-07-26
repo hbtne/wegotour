@@ -1,6 +1,6 @@
 {
-    "name": "stour",
-    "short_name": "stour",
+    "name": "wegotour",
+    "short_name": "wegotour",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
