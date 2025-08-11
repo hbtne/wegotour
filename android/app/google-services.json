@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "418012865597",
+    "project_id": "doan2-8a18f",
+    "storage_bucket": "doan2-8a18f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:418012865597:android:2e47f1fafefdcb1a6cf654",
+        "android_client_info": {
+          "package_name": "com.example.stour"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAVc6xpxOch7pgK67i1hf-Th9XjecfHH8o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
