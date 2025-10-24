@@ -15,7 +15,6 @@ import 'package:stour/screens/home_app_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:stour/screens/coupon_business.dart';
 import 'package:stour/screens/addPlace_screen.dart';
-
 import 'business_feed_screen.dart';
 
 class GoogleMapsController extends StatefulWidget {

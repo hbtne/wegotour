@@ -19,6 +19,7 @@ import 'package:stour/screens/forgot_password.dart';
 import 'package:stour/screens/dashboardBusiness_screen.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:stour/screens/dashboardAdmin_screen.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 FlutterLocalNotificationsPlugin();
@@ -28,6 +29,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
 );

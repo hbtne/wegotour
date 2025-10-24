@@ -11,13 +11,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:stour/assets/icons/timeline_svg.dart';
 import 'package:stour/assets/icons/home_svg.dart';
 import 'package:stour/assets/icons/account_svg.dart';
-
 import '../main.dart';
 
 List icons = [
   Icons.timeline_outlined,
   Icons.home_outlined,
   Icons.person_outline,
+  
 ];
 
 List<Widget> pages = [
