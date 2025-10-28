@@ -18,7 +18,7 @@ import 'package:stour/screens/addPlace_screen.dart';
 import 'business_feed_screen.dart';
 
 class GoogleMapsController extends StatefulWidget {
-  const GoogleMapsController({Key? key}) : super(key: key);
+  const GoogleMapsController({super.key});
 
   @override
   State<GoogleMapsController> createState() => _GoogleMapsControllerState();

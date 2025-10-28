@@ -10,7 +10,7 @@ class ProfileImage extends StatefulWidget {
   final Size size;
   final String docId;
 
-  const ProfileImage({Key? key, required this.size, required this.docId}) : super(key: key);
+  const ProfileImage({super.key, required this.size, required this.docId});
 
   @override
   _ProfileImageState createState() => _ProfileImageState();

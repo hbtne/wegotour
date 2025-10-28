@@ -17,7 +17,7 @@ Stream<List<Place>> getAllPlaceFoodStream(String collection) {
 
     for (var doc in snapshot.docs) {
       if (doc.exists) {
-        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        Map<String, dynamic> data = doc.data();
 
         Place tmpPlace = Place(
           id: data['id'] ?? '',
@@ -118,7 +118,7 @@ class SearchByNameWidget extends StatelessWidget {
           .collection('stourplace1')
           .orderBy('name')
           .startAt([searchQuery])
-          .endAt([searchQuery + '\uf8ff'])
+          .endAt(['$searchQuery\uf8ff'])
           .snapshots(),
       builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
         if (snapshot.hasError) {

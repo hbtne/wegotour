@@ -5,7 +5,7 @@ class CreateMinigameScreen extends StatefulWidget {
   final String? minigameId;
   final Map<String, dynamic>? existingData;
 
-  const CreateMinigameScreen({this.minigameId, this.existingData});
+  const CreateMinigameScreen({super.key, this.minigameId, this.existingData});
 
   @override
   _CreateMinigameScreenState createState() => _CreateMinigameScreenState();

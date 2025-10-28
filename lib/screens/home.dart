@@ -20,7 +20,7 @@ import 'package:stour/screens/ai_chatbox.dart';
 import '../main.dart';
 
 class GoogleMapsController extends StatefulWidget {
-  const GoogleMapsController({Key? key}) : super(key: key);
+  const GoogleMapsController({super.key});
 
   @override
   State<GoogleMapsController> createState() => _GoogleMapsControllerState();

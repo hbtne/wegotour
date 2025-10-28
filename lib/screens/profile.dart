@@ -22,7 +22,7 @@ class Profile extends StatefulWidget {
 
 class _ProfileState extends State<Profile> {
   final int _selectedEvent = 0;
-  int _currentIndex = 2;
+  final int _currentIndex = 2;
   Map<String, dynamic>? _profileData;
   bool _isLoading = true;
 

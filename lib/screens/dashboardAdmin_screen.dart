@@ -21,7 +21,7 @@ import 'manage_account_screen.dart';
 import 'manage_place_screen.dart';
 
 class GoogleMapsController extends StatefulWidget {
-  const GoogleMapsController({Key? key}) : super(key: key);
+  const GoogleMapsController({super.key});
 
   @override
   State<GoogleMapsController> createState() => _GoogleMapsControllerState();

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 // import 'package:flutter/material.dart';
 // import 'package:stour/util/reviews.dart';
 import 'package:stour/model/review.dart';
-import 'package:stour/screens/profile.dart';
 import 'package:stour/util/const.dart';
 
 class CreateReviewScreen extends StatefulWidget {

@@ -35,7 +35,7 @@ class _TrendingState extends State<Trending> {
   List<Place> getFilteredPlaces() {
     return widget.source.where((place) {
       final rating = double.tryParse(place.rating ?? '') ?? 0.0;
-      final price = place.price?.toDouble() ?? 0.0;
+      final price = place.price.toDouble() ?? 0.0;
 
       return (selectedCity == null || place.city == selectedCity) &&
           (selectedDistrict == null || place.district == selectedDistrict) &&

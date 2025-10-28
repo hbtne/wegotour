@@ -28,7 +28,7 @@ class _AddPostScreenState extends State<AddPostScreen> {
   final CloudinaryService _cloudinaryService = CloudinaryService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  List<File> _newImages = [];
+  final List<File> _newImages = [];
   List<String> _existingImageUrls = [];
   List<Map<String, dynamic>> allPlaces = [];
   List<Map<String, dynamic>> selectedPlaces = [];
@@ -100,7 +100,7 @@ class _AddPostScreenState extends State<AddPostScreen> {
 
   Future<void> _pickImages() async {
     final pickedFiles = await ImagePicker().pickMultiImage();
-    if (pickedFiles != null && pickedFiles.isNotEmpty) {
+    if (pickedFiles.isNotEmpty) {
       setState(() {
         _newImages.addAll(pickedFiles.map((file) => File(file.path)));
       });

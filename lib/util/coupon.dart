@@ -35,7 +35,7 @@ class Coupon {
       description: data['description'] ?? '',
       listQuestion: (data['questions'] as List<dynamic>?)
           ?.map((q) => Question.fromMap(q))
-          ?.toList() ??
+          .toList() ??
           [],
       creatorId: data['creatorId'] ?? '',
     );

@@ -114,7 +114,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
                   }
                 },
                 style: ButtonStyle(
-                  backgroundColor: MaterialStateProperty.resolveWith<Color>((states) {
+                  backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
                     if (selectedAnswerIndex == index) {
                       return selectedAnswerIndex == currentQuestion.correctAnswerIndex
                           ? Color(0x503B6332)
@@ -122,12 +122,12 @@ class _QuestionScreenState extends State<QuestionScreen> {
                     }
                     return Color(0x50FFD166);
                   }),
-                  minimumSize: MaterialStateProperty.all(const Size(double.infinity, 50)),
+                  minimumSize: WidgetStateProperty.all(const Size(double.infinity, 50)),
                 ),
                 child: Text(option, style: const TextStyle(fontSize: 15, color: Color(0xFF3B6332),))
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );

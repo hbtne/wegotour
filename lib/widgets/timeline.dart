@@ -3,7 +3,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:stour/screens/timeline_screen.dart';
 import 'package:intl/intl.dart';
-import 'package:stour/util/const.dart';
 
 class Timeline extends StatefulWidget {
   const Timeline({super.key});

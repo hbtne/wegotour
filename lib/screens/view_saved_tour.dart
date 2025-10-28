@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:stour/util/const.dart';
 import 'package:stour/util/places.dart';
 import 'package:stour/widgets/timeline_day.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'addPost_screen.dart';
 
 // ignore: must_be_immutable
 class ViewSavedTour extends StatefulWidget {

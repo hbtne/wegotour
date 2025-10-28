@@ -34,18 +34,18 @@ class _CommentScreenState extends State<CommentScreen> {
   }
 
   Future<void> _addComment() async {
-    final TextEditingController _controller = TextEditingController();
+    final TextEditingController controller = TextEditingController();
     final result = await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text("Thêm bình luận"),
         content: TextField(
-          controller: _controller,
+          controller: controller,
           decoration: const InputDecoration(hintText: "Nhập bình luận của bạn"),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Hủy")),
-          TextButton(onPressed: () => Navigator.pop(context, _controller.text.trim()), child: const Text("Gửi")),
+          TextButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text("Gửi")),
         ],
       ),
     );
