@@ -1,26 +1,27 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/services.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:stour/model/place.dart';
+import 'package:stour/screens/home_app_bar.dart';
 import 'package:stour/screens/trending.dart';
 import 'package:stour/util/const.dart';
 import 'package:stour/util/places.dart';
 import 'package:stour/widgets/place_card.dart';
-import 'package:stour/model/place.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:stour/widgets/search_card.dart';
 import 'package:stour/screens/home_app_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:stour/assets/icons/ai_svg.dart'; 
+import 'package:stour/assets/icons/ai_svg.dart';
 import 'package:stour/screens/ai_chatbox.dart';
 import '../main.dart';
 
 class GoogleMapsController extends StatefulWidget {
-  const GoogleMapsController({super.key});
+  const GoogleMapsController({Key? key}) : super(key: key);
 
   @override
   State<GoogleMapsController> createState() => _GoogleMapsControllerState();
@@ -150,114 +151,74 @@ class _HomeState extends State<Home> {
           preferredSize: Size.fromHeight(90),
           child: HomeAppBar(),
         ),
-        body: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: SafeArea(
-                child: ListView(
-                  children: <Widget>[
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Vị Trí Hiện Tại',
-                      style: TextStyle(
-                        color: Color(0xFF3B6332),
-                        fontSize: 20.0,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const SizedBox(
-                      height: 200,
-                      width: 300,
-                      child: GoogleMapsController(),
-                    ),
-                    const SizedBox(height: 20.0),
-                    // --------- Địa Điểm Văn Hóa ----------
-                    StreamBuilder<List<Place>>(
-                      stream: places,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator());
-                        } else if (snapshot.hasError) {
-                          return Center(child: Text('Lỗi: ${snapshot.error}'));
-                        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                          return const Center(child: Text('Không có dữ liệu.'));
-                        } else {
-                          final places = snapshot.data!;
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              buildPlaceRow('Địa Điểm Văn Hóa', places, context),
-                              buildPlaceList(context, places),
-                            ],
-                          );
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 5.0),
-                    // --------- Đặc Sản ----------
-                    StreamBuilder<List<Place>>(
-                      stream: food,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator());
-                        } else if (snapshot.hasError) {
-                          return Center(child: Text('Lỗi: ${snapshot.error}'));
-                        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                          return const Center(child: Text('Không có dữ liệu.'));
-                        } else {
-                          final food = snapshot.data!;
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              buildPlaceRow('Đặc Sản', food, context),
-                              buildPlaceList(context, food),
-                            ],
-                          );
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 30),
-                  ],
-                ),
-              ),
-            ),
-            // --------- Nút AI Chatbox nổi ----------
-            Positioned(
-              bottom: 24,
-              right: 24,
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const AIChatScreen(),
-                    ),
-                  );
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(30),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 8,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(12),
-                  child: SvgPicture.string(
-                    aiSVG, // biến chứa nội dung SVG của bạn
-                    height: 40,
-                    width: 40,
+        body: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: SafeArea(
+            child: ListView(
+              children: <Widget>[
+                const SizedBox(height: 10),
+                const Text(
+                  'Vị Trí Hiện Tại',
+                  style: TextStyle(
+                    color:  Color(0xFF3B6332),
+                    fontSize: 20.0,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-              ),
+                const SizedBox(height: 20),
+                const SizedBox(
+                  height: 200,
+                  width: 300,
+                  child: GoogleMapsController(),
+                ),
+                const SizedBox(height: 20.0),
+                StreamBuilder<List<Place>>(
+                  stream: places,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    } else if (snapshot.hasError) {
+                      return Center(child: Text('Lỗi: ${snapshot.error}'));
+                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return const Center(child: Text('Không có dữ liệu.'));
+                    } else {
+                      final places = snapshot.data!;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          buildPlaceRow('Địa Điểm Văn Hóa', places, context),
+                          buildPlaceList(context, places),
+                        ],
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 5.0),
+                StreamBuilder<List<Place>>(
+                  stream: food,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    } else if (snapshot.hasError) {
+                      return Center(child: Text('Lỗi: ${snapshot.error}'));
+                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return const Center(child: Text('Không có dữ liệu.'));
+                    } else {
+                      final food = snapshot.data!;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          buildPlaceRow('Đặc Sản', food, context),
+                          buildPlaceList(context, food),
+                        ],
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 30),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

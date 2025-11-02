@@ -125,7 +125,7 @@ class SavedTourClass {
 
 
 
-List<String> currentLocationDetail = [];
+List<String> currentLocationDetail = ["Tây Ninh","Hồ Chí Minh", "Cần Thơ"];
 
 
 // Địa điểm du lịch
