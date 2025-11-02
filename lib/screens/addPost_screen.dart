@@ -1,12 +1,11 @@
 import 'dart:io';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/cloudinary_service.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import '../util/places.dart';
 import 'package:stour/assets/icons/send_svg.dart' as sendIcon;
 import 'package:multi_select_flutter/multi_select_flutter.dart';
@@ -15,8 +14,9 @@ import 'package:multi_select_flutter/multi_select_flutter.dart';
 class AddPostScreen extends StatefulWidget {
   final Map<String, dynamic>? existingPost;
   final String? postId;
+  final String? groupId;
 
-  const AddPostScreen({super.key, this.existingPost, this.postId});
+  const AddPostScreen({super.key, this.existingPost, this.postId, this.groupId});
 
   @override
   State<AddPostScreen> createState() => _AddPostScreenState();
@@ -138,6 +138,7 @@ class _AddPostScreenState extends State<AddPostScreen> {
 
       if (widget.existingPost != null && widget.postId != null) {
         await FirebaseFirestore.instance.collection('posts').doc(widget.postId).update({
+          'groupid': widget.groupId,
           'content': _postController.text,
           'location': _locationController.text,
           'imageUrls': allImageUrls,
@@ -151,11 +152,11 @@ class _AddPostScreenState extends State<AddPostScreen> {
       } else {
         final newPostRef = _firestore.collection('posts').doc(); // auto ID
         final postId = newPostRef.id;
-
         await newPostRef.set({
           'userId': user?.uid,
           'content': _postController.text,
           'imageUrls': allImageUrls,
+          'groupId': widget.groupId,
           'places': selectedPlaces.map((p) => p['id']).toList(),
           'timestamp': FieldValue.serverTimestamp(),
           'createdAt': Timestamp.now(),
@@ -168,9 +169,20 @@ class _AddPostScreenState extends State<AddPostScreen> {
           'ccomments': [],
         });
 
-        await FirebaseFirestore.instance.collection('users').doc(user?.uid).update({
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user?.uid)
+            .update({
           'posts': FieldValue.arrayUnion([postId])
         });
+
+        if (widget.groupId != null)
+        {
+          await FirebaseFirestore.instance.collection('groups').doc(
+              widget.groupId).update({
+            'posts': FieldValue.arrayUnion([postId])
+          });
+        }
 
         for (final place in selectedPlaces) {
           final placeRef = _firestore.collection(place['type']).doc(place['id']);

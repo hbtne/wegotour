@@ -1,21 +1,214 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:stour/util/const.dart';
+import 'package:stour/assets/icons/add_group.dart';
+import 'package:stour/assets/icons/all_group.dart';
+import 'package:stour/assets/icons/search_group.dart';
+import 'package:stour/screens/add_group.dart';
+import 'package:stour/screens/find_group.dart';
+import 'package:stour/screens/list_group.dart';
+import 'package:stour/screens/list_group_message.dart';
 
+import '../util/const.dart';
 import 'addPost_screen.dart';
 import 'comment_screen.dart';
+import '../assets/icons/chat_feed_bar.dart';
 
-class PostScreen extends StatefulWidget {
-  const PostScreen({super.key});
+class GroupsScreen extends StatefulWidget {
+  const GroupsScreen({super.key});
 
   @override
-  State<PostScreen> createState() => _PostScreenState();
+  State<GroupsScreen> createState() => _GroupsScreenState();
 }
 
-class _PostScreenState extends State<PostScreen> {
+class _GroupsScreenState extends State<GroupsScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  String? avatarUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAvatar();
+  }
+
+  Future<void> _loadAvatar() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      setState(() {
+        avatarUrl = doc.data()?['avatar'];
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: _buildAppBar(context),
+      body: Column(
+        children: [
+          _buildTopActions(),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _firestore
+                  .collection('posts')
+                  .orderBy('createdAt', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('Lỗi: ${snapshot.error}'));
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(child: Text('Chưa có bài viết nào'));
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  itemCount: snapshot.data!.docs.length,
+                  itemBuilder: (context, index) {
+                    final postData = snapshot.data!.docs[index];
+                    final data = postData.data() as Map<String, dynamic>;
+                    final authorId = data['authorId'] ?? '';
+                    return FutureBuilder<DocumentSnapshot>(
+                      future:
+                          _firestore.collection('users').doc(authorId).get(),
+                      builder: (context, userSnapshot) {
+                        if (userSnapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const SizedBox();
+                        }
+                        final userData = (userSnapshot.data?.data()
+                                as Map<String, dynamic>?) ??
+                            {};
+                        return _buildPostItem(
+                          postId: postData.id,
+                          content: data['content'] ?? '',
+                          imageUrls: List<String>.from(data['imageUrls'] ?? []),
+                          author: userData['username'] ?? 'Ẩn danh',
+                          timeAgo: _getTimeAgo(data['createdAt'] as Timestamp),
+                          location: data['location'] ?? '',
+                          avatarUrl: userData['avatar'] ?? '',
+                          likes: data['likes'] ?? 0,
+                          comments: data['comments'] ?? 0,
+                          shares: data['shares'] ?? 0,
+                          authorId: authorId,
+                          placeIds: List<String>.from(data['places'] ?? []),
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  AppBar _buildAppBar(BuildContext context) {
+    return AppBar(
+      backgroundColor: Colors.white,
+      centerTitle: true,
+      title: const Text(
+        'NHÓM CỦA BẠN',
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF3B6332),
+        ),
+      ),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back,
+            color: Color.fromARGB(255, 35, 52, 10)),
+        onPressed: () {
+          Navigator.pop(context);
+        },
+      ),
+      actions: [
+        IconButton(
+          icon: SvgPicture.string(chatFeedSVG, height: 30, width: 30),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const GroupMessageScreen()),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTopActions() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 15),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildActionItem(
+            icon: addGroupSVG,
+            label: "Tạo mới",
+            screen: const CreateGroupScreen(),
+          ),
+          _buildActionItem(
+            icon: allGroupSVG,
+            label: "Tất cả nhóm",
+            screen: const GroupListScreen(),
+          ),
+          _buildActionItem(
+            icon: searchGroupSVG,
+            label: "Tìm nhóm",
+            screen: const SearchGroupScreen(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionItem({
+    required String icon,
+    required String label,
+    required Widget screen,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => screen),
+        );
+      },
+      child: Column(
+        children: [
+          IconButton(
+            icon: SvgPicture.string(icon, height: 30, width: 30),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => screen),
+              );
+            },
+          ),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF3B6332),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<List<Map<String, dynamic>>> _fetchPlacesFromIds(
       List<String> placeIds) async {
@@ -35,84 +228,6 @@ class _PostScreenState extends State<PostScreen> {
     }
 
     return results;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestore
-          .collection('posts')
-          .orderBy('createdAt', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (snapshot.hasError) {
-          return Center(child: Text('Lỗi: ${snapshot.error}'));
-        }
-
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('Chưa có bài viết nào'));
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          itemCount: snapshot.data!.docs.length,
-          itemBuilder: (context, index) {
-            final postData = snapshot.data!.docs[index];
-            final data = postData.data() as Map<String, dynamic>;
-            final authorId = data['authorId'] ?? '';
-            final postId = postData.id;
-            return FutureBuilder<DocumentSnapshot>(
-              future: _firestore.collection('users').doc(authorId).get(),
-              builder: (context, userSnapshot) {
-                if (userSnapshot.connectionState == ConnectionState.waiting) {
-                  return const SizedBox();
-                }
-                if (userSnapshot.hasError ||
-                    !userSnapshot.hasData ||
-                    !userSnapshot.data!.exists) {
-                  final placeIds = List<String>.from(data['places'] ?? []);
-                  return _buildPostItem(
-                    postId: postId,
-                    content: data['content'] ?? '',
-                    imageUrls: List<String>.from(data['imageUrls'] ?? []),
-                    author: 'Người dùng ẩn danh',
-                    timeAgo: _getTimeAgo(data['createdAt'] as Timestamp),
-                    location: data['location'] ?? '',
-                    avatarUrl: '',
-                    likes: data['likes'] ?? 0,
-                    comments: data['comments'] ?? 0,
-                    shares: data['shares'] ?? 0,
-                    authorId: authorId,
-                    placeIds: placeIds,
-                  );
-                }
-                final userData =
-                    userSnapshot.data!.data() as Map<String, dynamic>;
-                final placeIds = List<String>.from(data['places'] ?? []);
-                return _buildPostItem(
-                  postId: postId,
-                  content: data['content'] ?? '',
-                  imageUrls: List<String>.from(data['imageUrls'] ?? []),
-                  author: userData['username'] ?? 'Không tên',
-                  timeAgo: _getTimeAgo(data['createdAt'] as Timestamp),
-                  location: data['location'] ?? '',
-                  avatarUrl: userData['avatar'] ?? '',
-                  likes: data['likes'] ?? 0,
-                  comments: data['comments'] ?? 0,
-                  shares: data['shares'] ?? 0,
-                  authorId: authorId,
-                  placeIds: placeIds,
-                );
-              },
-            );
-          },
-        );
-      },
-    );
   }
 
   String _getTimeAgo(Timestamp timestamp) {
@@ -147,7 +262,6 @@ class _PostScreenState extends State<PostScreen> {
     return FutureBuilder<List<Map<String, dynamic>>>(
         future: _fetchPlacesFromIds(placeIds),
         builder: (context, snapshot) {
-          final places = snapshot.data ?? [];
           final placeTags = snapshot.data ?? [];
 
           return Container(

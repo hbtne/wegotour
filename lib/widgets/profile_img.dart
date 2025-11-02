@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_neumorphic_plus/flutter_neumorphic.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -85,6 +86,8 @@ class _ProfileImageState extends State<ProfileImage> {
               .collection('users')
               .doc(widget.docId)
               .update({'avatar': newAvatarUrl});
+
+          await FirebaseAuth.instance.currentUser?.updatePhotoURL(newAvatarUrl);
 
           setState(() {
             avatarUrl = newAvatarUrl;

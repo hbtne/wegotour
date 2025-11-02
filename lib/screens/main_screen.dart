@@ -1,16 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:stour/screens/home.dart';
-import 'package:stour/widgets/timeline.dart';
-import 'package:stour/util/const.dart';
-import 'package:stour/screens/profile.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:stour/assets/icons/timeline_svg.dart';
-import 'package:stour/assets/icons/home_svg.dart';
 import 'package:stour/assets/icons/account_svg.dart';
+import 'package:stour/assets/icons/group_bottom_bar.dart';
+import 'package:stour/assets/icons/home_svg.dart';
+import 'package:stour/assets/icons/timeline_svg.dart';
+import 'package:stour/screens/feed.dart';
+import 'package:stour/screens/home.dart';
+import 'package:stour/screens/profile.dart';
+import 'package:stour/util/const.dart';
+import 'package:stour/widgets/timeline.dart';
 
 import '../main.dart';
 
@@ -22,9 +24,9 @@ List icons = [
 
 List<Widget> pages = [
   const Timeline(),
+  const Feeds(),
   const Home(),
   const Profile(),
-  // const ReviewScreen(),
 ];
 
 class MainScreen extends StatefulWidget {
@@ -36,7 +38,7 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  PageController _pageController = PageController(initialPage: 1);
+  PageController _pageController = PageController(initialPage: 2);
 
   @override
   Widget build(BuildContext context) {
@@ -54,8 +56,7 @@ class _MainScreenState extends State<MainScreen> {
             child: PageView(
               physics: const NeverScrollableScrollPhysics(),
               controller: _pageController,
-              // onPageChanged: onPageChanged,
-              children: List.generate(3, (index) => pages[index]),
+              children: List.generate(4, (index) => pages[index]),
             ),
           ),
         ],
@@ -105,7 +106,7 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   void initState() {
-    _pageController = PageController(initialPage: 1);
+    _pageController = PageController(initialPage: 2);
     checkAndNotifyUpcomingTours();
     super.initState();
   }
@@ -126,13 +127,18 @@ class HomeBottomBar extends StatelessWidget {
     return CurvedNavigationBar(
       backgroundColor: Constants.navBG,
       buttonBackgroundColor: Constants.navBG,
-      index: 1,
+      index: 2,
       items: [
       SvgPicture.string(
       timelineSVG,
       height: 30,
       width: 30,
     ),
+      SvgPicture.string(
+        groupSVG,
+        height: 30,
+        width: 30,
+      ),
       SvgPicture.string(
       homeSVG,
       height: 30,
