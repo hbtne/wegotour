@@ -43,25 +43,31 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     icon: const Icon(Icons.arrow_back, color: primary),
                     onPressed: () => Navigator.pop(context),
                   ),
-                  const Spacer(),
-                  Text(
-                    "NHÓM ${widget.groupName.toUpperCase()}",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 20,
-                      color: primary,
+
+                  // 🔹 Cho Text vào Expanded để tự co khi thiếu chỗ
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        "NHÓM ${widget.groupName.toUpperCase()}",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 20,
+                          color: primary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  const Spacer(),
-                  const SizedBox(width: 40),
+
+                  // 🔹 Cột trống bên phải để cân layout (bằng kích thước IconButton)
+                  const SizedBox(width: 48),
                 ],
               ),
             ),
 
             const SizedBox(height: 10),
 
-            // --- MESSAGE LIST ---
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
@@ -139,7 +145,6 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     );
   }
 
-  // --- OTHER USERS MESSAGE ---
   Widget _messageRow({required String name, required String msg}) {
     const Color greenBubble = Color(0xFF8E9F87);
 
@@ -182,7 +187,6 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     );
   }
 
-  // --- SELF MESSAGE ---
   Widget _messageSelf(String msg) {
     const Color yellowBubble = Color(0xFFFFE7A6);
 
