@@ -5,10 +5,13 @@ import 'package:share_plus/share_plus.dart';
 
 import '../screens/addPost_screen.dart';
 import '../screens/comment_screen.dart';
+import '../screens/group_post.dart';
 import '../util/const.dart';
 
 class PostItem extends StatelessWidget {
   final String postId;
+  final String groupId;
+  final String groupName;
   final String content;
   final List<String> imageUrls;
   final Timestamp timeAgo;
@@ -24,6 +27,8 @@ class PostItem extends StatelessWidget {
   PostItem({
     super.key,
     required this.postId,
+    required this.groupId,
+    required this.groupName,
     required this.content,
     required this.imageUrls,
     required this.timeAgo,
@@ -90,34 +95,76 @@ class PostItem extends StatelessWidget {
           Row(
             children: [
               CircleAvatar(
-                backgroundColor: Colors.transparent,
+                radius: 24,
+                backgroundColor: Colors.grey.shade300,
                 backgroundImage: avatar.isNotEmpty
                     ? NetworkImage(avatar)
                     : const AssetImage('assets/default_avatar.png')
                 as ImageProvider,
               ),
               const SizedBox(width: 10),
+
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    author,
-                    style: const TextStyle(
-                      color: Color.fromARGB(255, 35, 52, 10),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        author,
+                        style: const TextStyle(
+                          color: Color(0xFF2E5E2A),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      if (groupId != null && groupId.isNotEmpty)
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => GroupPostScreen(
+                                  groupId: groupId,
+                                  groupName: groupName,
+                                ),
+                              ),
+                            );
+                          },
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.chevron_right,
+                                size: 18,
+                                color: Color(0xFF2E5E2A),
+                              ),
+                              Text(
+                                groupName,
+                                style: const TextStyle(
+                                  color: Color(0xFF2E5E2A),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
+                  const SizedBox(height: 4),
                   Text(
                     _getTimeAgo(timeAgo),
                     style: const TextStyle(
                       color: Color.fromARGB(173, 35, 52, 10),
+                      fontSize: 12,
                     ),
                   ),
                 ],
               ),
             ],
           ),
+
+          // 🔹 Dấu 3 chấm
           PopupMenuButton<String>(
             onSelected: (value) => _handleMenu(context, value),
             itemBuilder: (BuildContext context) => [
@@ -130,7 +177,10 @@ class PostItem extends StatelessWidget {
                 child: Text("Chỉnh sửa bài viết"),
               ),
             ],
-            child: const Icon(Icons.more_vert, color: Colors.black),
+            child: const Icon(
+              Icons.more_vert,
+              color: Color(0xFFFFD54F), // vàng nhạt
+            ),
           ),
         ],
       ),

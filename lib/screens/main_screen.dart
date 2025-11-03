@@ -5,30 +5,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:stour/assets/icons/account_svg.dart';
-import 'package:stour/assets/icons/group_bottom_bar.dart';
-import 'package:stour/assets/icons/home_svg.dart';
-import 'package:stour/assets/icons/timeline_svg.dart';
-import 'package:stour/screens/feed.dart';
-import 'package:stour/screens/home.dart';
 import 'package:stour/screens/profile.dart';
-import 'package:stour/util/const.dart';
-import 'package:stour/widgets/timeline.dart';
-
-import 'package:stour/util/const.dart';
-import 'package:stour/screens/profile.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:stour/assets/icons/timeline_svg.dart';
-import 'package:stour/assets/icons/home_svg.dart';
-import 'package:stour/assets/icons/account_svg.dart';
-import 'package:stour/screens/feed.dart';
-import 'package:stour/assets/icons/group_bottom_bar.dart';
+import '../assets/icons/group_bottom_bar.dart';
+import '../assets/icons/home_svg.dart';
+import '../assets/icons/timeline_svg.dart';
 import '../main.dart';
+import '../util/const.dart';
+import '../widgets/timeline.dart';
+import 'feed.dart';
+import 'home.dart';
 
 List icons = [
   Icons.timeline_outlined,
   Icons.home_outlined,
   Icons.person_outline,
-
+  
 ];
 
 List<Widget> pages = [

@@ -91,7 +91,7 @@ class _SearchMessageScreenState extends State<SearchMessageScreen> {
                           messageText: item['text'],
                           highlight: searchQuery,
                           context: context,
-                          createAt: item['createAt'],
+                          createdAt: item['createdAt'],
                         );
                       },
                     );
@@ -105,70 +105,66 @@ class _SearchMessageScreenState extends State<SearchMessageScreen> {
     );
   }
 
-  /// 🔍 Tìm kiếm tin nhắn có chứa keyword trong tất cả nhóm
   Future<List<Map<String, dynamic>>> _searchMessages(String keyword) async {
     final lowerKeyword = keyword.trim().toLowerCase();
     if (lowerKeyword.isEmpty) return [];
 
     final groupsSnapshot = await FirebaseFirestore.instance.collection('groups').get();
-    List<Map<String, dynamic>> results = [];
+    final List<Map<String, dynamic>> results = [];
 
-    for (var group in groupsSnapshot.docs) {
-      final messagesSnapshot = await group.reference
-          .collection('messages')
-          .orderBy('createAt', descending: true)
-          .limit(100) // tránh load quá nhiều
-          .get();
+    await Future.wait(groupsSnapshot.docs.map((group) async {
+      try {
+        final messagesQuery = group.reference
+            .collection('messages')
+            .orderBy('text')
+            .limit(100);
 
-      for (var group in groupsSnapshot.docs) {
-        final messagesSnapshot = await group.reference.collection('messages').get();
-        debugPrint("🔹 Nhóm ${group['name']} có ${messagesSnapshot.docs.length} tin nhắn.");
+        final messagesSnapshot = await messagesQuery.get();
 
         for (var msg in messagesSnapshot.docs) {
           final text = (msg['text'] ?? '').toString();
-
+          debugPrint("text ${text.trim().toLowerCase()}: keyword $lowerKeyword");
           if (text.trim().toLowerCase().contains(lowerKeyword)) {
             results.add({
               'groupId': group.id,
               'avatarUrl': group['avatarUrl'] ?? '',
               'groupName': group['name'] ?? '',
               'text': text,
-              'createAt': msg['createAt'] ?? Timestamp.now(),
+              'createdAt': msg['createdAt'] ?? Timestamp.now(),
             });
-            debugPrint("👉 Added: ${results.length}");
           }
         }
+      } catch (e) {
+        debugPrint("⚠️ Lỗi đọc nhóm ${group.id}: $e");
       }
-    }
+    }));
 
-    // Sắp xếp theo thời gian gửi (mới nhất trước)
     results.sort((a, b) {
-      final aTime = (a['createAt'] as Timestamp).toDate();
-      final bTime = (b['createAt'] as Timestamp).toDate();
+      final aTime = (a['createdAt'] as Timestamp).toDate();
+      final bTime = (b['createdAt'] as Timestamp).toDate();
       return bTime.compareTo(aTime);
     });
 
+    debugPrint("✅ Tổng cộng tìm thấy: ${results.length}");
     return results;
   }
 
-  /// Widget tile hiển thị mỗi kết quả tin nhắn
   Widget _buildMessageTile({
     required String groupId,
     required String avatarUrl,
     required String groupName,
     required String messageText,
-    required Timestamp createAt,
+    required Timestamp createdAt,
     required String highlight,
     required BuildContext context,
   }) {
-    final dateTime = createAt.toDate();
+    final dateTime = createdAt.toDate();
     final formattedDate = DateFormat('HH:mm dd/MM').format(dateTime);
 
-    final TextStyle normal = const TextStyle(fontSize: 16, color: Colors.black);
     final TextStyle highlightStyle = const TextStyle(
       backgroundColor: Color(0xFFFFE9A0),
       color: Colors.black,
-      fontWeight: FontWeight.bold,
+      fontStyle: FontStyle.italic,
     );
 
     return ListTile(
@@ -188,7 +184,15 @@ class _SearchMessageScreenState extends State<SearchMessageScreen> {
         backgroundColor: Colors.green.shade200,
         backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
       ),
-      title: _highlightText(groupName, highlight, normal, highlightStyle),
+      title: _highlightText(
+          groupName,
+          highlight,
+          const TextStyle(
+            color: Color(0xFF2E5E2A),
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+          ),
+          highlightStyle),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -196,7 +200,7 @@ class _SearchMessageScreenState extends State<SearchMessageScreen> {
           _highlightText(
             messageText,
             highlight,
-            const TextStyle(fontStyle: FontStyle.italic, color: Colors.black87),
+            const TextStyle(fontStyle: FontStyle.normal, color: Colors.black87),
             highlightStyle,
           ),
           const SizedBox(height: 2),
@@ -205,7 +209,7 @@ class _SearchMessageScreenState extends State<SearchMessageScreen> {
             style: const TextStyle(
               color: Color(0xFF48623F),
               fontSize: 13,
-              fontStyle: FontStyle.italic,
+              fontStyle: FontStyle.normal,
             ),
           ),
         ],

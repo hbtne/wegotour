@@ -15,8 +15,9 @@ class AddPostScreen extends StatefulWidget {
   final Map<String, dynamic>? existingPost;
   final String? postId;
   final String? groupId;
+  final String? groupName;
 
-  const AddPostScreen({super.key, this.existingPost, this.postId, this.groupId});
+  const AddPostScreen({super.key, this.existingPost, this.postId, this.groupId, this.groupName});
 
   @override
   State<AddPostScreen> createState() => _AddPostScreenState();
@@ -138,7 +139,8 @@ class _AddPostScreenState extends State<AddPostScreen> {
 
       if (widget.existingPost != null && widget.postId != null) {
         await FirebaseFirestore.instance.collection('posts').doc(widget.postId).update({
-          'groupid': widget.groupId,
+          'groupId': widget.groupId,
+          'groupName': widget.groupName,
           'content': _postController.text,
           'location': _locationController.text,
           'imageUrls': allImageUrls,
@@ -157,6 +159,7 @@ class _AddPostScreenState extends State<AddPostScreen> {
           'content': _postController.text,
           'imageUrls': allImageUrls,
           'groupId': widget.groupId,
+          'groupName': widget.groupName,
           'places': selectedPlaces.map((p) => p['id']).toList(),
           'timestamp': FieldValue.serverTimestamp(),
           'createdAt': Timestamp.now(),

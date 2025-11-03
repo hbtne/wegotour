@@ -26,7 +26,6 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
 
   final Map<String, QueryDocumentSnapshot> _eventsMap = {};
   final List<StreamSubscription<QuerySnapshot>> _subscriptions = [];
-  List<String> _prevEventIds = [];
 
   @override
   void dispose() {
@@ -107,6 +106,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
           icon: const Icon(Icons.arrow_back, color: Color(0xFF2E582B)),
           onPressed: () => Navigator.pop(context),
         ),
+        centerTitle: true,
         title: Text(widget.groupName, style: const TextStyle(color: Color(0xFF2E582B), fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
@@ -257,25 +257,37 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                 const SizedBox(height: 10),
                 buildEvents(),
                 const SizedBox(height: 20),
-                const Text('Số thành viên', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2E582B))),
-                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Số thành viên',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2E582B),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () => _showInviteDialog(context),
+                      icon: const Icon(Icons.add, color: Color(0xFF2E582B)),
+                      label: const Text(
+                        'Mời bạn',
+                        style: TextStyle(color: Color(0xFF2E582B)),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF9E3A2),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
                 Text('${members.length} người', style: const TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 12),
                 buildMembers(),
-                const SizedBox(height: 24),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _showInviteDialog(context),
-                    icon: const Icon(Icons.add, color: Color(0xFF2E582B)),
-                    label: const Text('Mời bạn', style: TextStyle(color: Color(0xFF2E582B))),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF9E3A2),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ),
                 const SizedBox(height: 40),
               ],
             ),

@@ -177,6 +177,8 @@ class _GroupPostScreenState extends State<GroupPostScreen> {
 
                               return PostItem(
                                 postId: post.id,
+                                groupId: data['groupId'] ?? '',
+                                groupName: data['groupName'] ?? '',
                                 content: data['content'] ?? '',
                                 imageUrls: List<String>.from(data['imageUrls'] ?? []),
                                 timeAgo: data['createdAt'] as Timestamp,

@@ -86,6 +86,8 @@ class _FeedsState extends State<Feeds> {
                             {};
                         return PostItem(
                           postId: postData.id,
+                          groupId: data['groupId'] ?? '',
+                          groupName: data['groupName'] ?? '',
                           content: data['content'] ?? '',
                           imageUrls: List<String>.from(data['imageUrls'] ?? []),
                           timeAgo: data['createdAt'] as Timestamp,
