@@ -149,7 +149,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                 0: FlexColumnWidth(2), // Tên sự kiện (rộng hơn)
                 1: FlexColumnWidth(1.2),
                 2: FlexColumnWidth(1.2),
-                3: FlexColumnWidth(1.4), // Cột nút
+                3: FlexColumnWidth(1.2), // Cột nút
               },
               defaultVerticalAlignment: TableCellVerticalAlignment.middle,
               children: [
@@ -245,7 +245,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                                 borderRadius: BorderRadius.circular(8)),
                           ),
                           child:
-                          Text(joinedByUser ? 'Đã tham gia' : 'Tham gia'),
+                          Text(joinedByUser ? 'Đã tham gia' : 'Tham gia',
+                          style: TextStyle(fontSize: 10),),
                         ),
                       ),
                     ],
@@ -309,15 +310,6 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                   SvgPicture.string(eventCalendarSVG, width: 20, height: 20),
                 ]),
                 const SizedBox(height: 12),
-                Row(
-                  children: const [
-                    Expanded(flex: 2, child: Text('Tên sự kiện', style: TextStyle(color: Color(0xFF2E582B), fontWeight: FontWeight.bold))),
-                    Expanded(child: Text('Thời gian', style: TextStyle(color: Color(0xFF2E582B), fontWeight: FontWeight.bold))),
-                    Expanded(child: Text('Tập hợp ở', style: TextStyle(color: Color(0xFF2E582B), fontWeight: FontWeight.bold))),
-                    SizedBox(width: 80),
-                  ],
-                ),
-                const SizedBox(height: 10),
                 buildEvents(),
                 const SizedBox(height: 20),
                 Row(
