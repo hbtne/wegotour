@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:stour/services/ai_service.dart';
@@ -40,7 +41,6 @@ class _AIChatScreenState extends State<AIChatScreen> {
     try {
       _speechAvailable = await _speech.initialize(
         onStatus: (status) {
-          // status can be "listening", "notListening", "done" ...
           if (kDebugMode) print('Speech status: $status');
           if (status == 'notListening' || status == 'done') {
             setState(() => _isListening = false);
@@ -71,18 +71,15 @@ class _AIChatScreenState extends State<AIChatScreen> {
     setState(() => _isListening = true);
     await _speech.listen(
       onResult: (result) {
-        // result.recognizedWords cập nhật realtime
         setState(() {
           _controller.text = result.recognizedWords;
           _controller.selection = TextSelection.fromPosition(
               TextPosition(offset: _controller.text.length));
         });
-        // Nếu muốn tự động gửi khi finalResult == true:
-        // if (result.finalResult) _send();
       },
       listenFor: const Duration(seconds: 60),
       pauseFor: const Duration(seconds: 3),
-      localeId: 'vi_VN', // ưu tiên tiếng Việt
+      localeId: 'vi_VN',
       onSoundLevelChange: (level) {
         setState(() => _soundLevel = level);
       },
@@ -122,7 +119,6 @@ class _AIChatScreenState extends State<AIChatScreen> {
     try {
       String aiResponse;
 
-      // If there's an image -> fake response: always Dinh Độc Lập and include Place object
       if (_pickedImage != null) {
         final demoPlace = Place(
           id: 'dinh_doc_lap',
@@ -153,7 +149,6 @@ class _AIChatScreenState extends State<AIChatScreen> {
         return;
       }
 
-      // If only text -> call AI normally
       aiResponse = await _gemini.sendMessageWithHistory(
         _messages
             .map((m) => {
@@ -178,6 +173,18 @@ class _AIChatScreenState extends State<AIChatScreen> {
     final isUser = msg['role'] == 'user';
     final imagePath = msg['image'] as String?;
     final placeObj = msg['place'] as Place?;
+    final content = (msg['content'] ?? '').toString();
+
+    // Build a Markdown style sheet based on theme so it looks natural
+    final mdStyle = MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+      p: TextStyle(
+        color: Colors.black87,
+        fontSize: 14,
+        height: 1.4,
+      ),
+      // Customize strong/bold color if needed:
+      strong: const TextStyle(fontWeight: FontWeight.bold),
+    );
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -195,9 +202,16 @@ class _AIChatScreenState extends State<AIChatScreen> {
           children: [
             if (imagePath != null) ...[
               Image.file(File(imagePath)),
-              if (msg['content'] != null) const SizedBox(height: 8),
+              if (content.isNotEmpty) const SizedBox(height: 8),
             ],
-            if (msg['content'] != null) Text(msg['content']),
+            if (content.isNotEmpty)
+              // Use MarkdownBody so **bold** and *italic* render correctly
+              MarkdownBody(
+                data: content,
+                styleSheet: mdStyle,
+                selectable: false,
+                // Optionally constrain or handle onTapLink if you want links clickable
+              ),
             if (placeObj != null) ...[
               const SizedBox(height: 8),
               TextButton(
@@ -288,7 +302,6 @@ class _AIChatScreenState extends State<AIChatScreen> {
                       icon: const Icon(Icons.photo, color: Color(0xFF3B6332)),
                       onPressed: _pickImage,
                     ),
-                    // Mic icon
                     IconButton(
                       icon: Icon(
                         _isListening ? Icons.mic : Icons.mic_none,
@@ -332,7 +345,6 @@ class _AIChatScreenState extends State<AIChatScreen> {
                           ),
                   ],
                 ),
-                // Optional simple sound level indicator while listening
                 if (_isListening)
                   Padding(
                     padding: const EdgeInsets.only(top: 6.0),
