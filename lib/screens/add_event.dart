@@ -107,7 +107,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       'id': doc.id,
         'title':_titleCtrl.text.trim(),
         'place': _placeCtrl.text.trim(),
-        'time': _formatTimeRange(startDate, startTime, endDate, endTime)
+        'time': _formatTimeRange(startDate, startTime)
       }])
     });
 
@@ -119,18 +119,16 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     }
   }
 
-  String _formatTimeRange(String? startDate, String? startTime, String? endDate, String? endTime) {
-    if (startDate == null || startTime == null || endDate == null || endTime == null) return '';
+  String _formatTimeRange(String? startDate, String? startTime) {
+    if (startDate == null || startTime == null) return '';
 
     // Parse ngày để format lại thành dd/MM/yyyy
     try {
       final start = DateTime.parse(startDate);
-      final end = DateTime.parse(endDate);
       final startStr = '${startTime.replaceAll(':', 'h ')}${DateFormat('dd/MM/yyyy').format(start)}';
-      final endStr = '${endTime.replaceAll(':', 'h ')}${DateFormat('dd/MM/yyyy').format(end)}';
-      return '$startStr - $endStr';
+      return startStr;
     } catch (e) {
-      return '$startTime $startDate - $endTime $endDate';
+      return '$startTime $startDate';
     }
   }
 

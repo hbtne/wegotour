@@ -143,54 +143,117 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                 .toList(),
           );
 
-          Widget buildEvents() => Column(
-            children: eventsList.map((ev) {
-              final currentUid = _auth.currentUser?.uid;
-              final joined = List<String>.from(ev['joined'] ?? []);
-              final joinedByUser = currentUid != null && joined.contains(currentUid);
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
+          Widget buildEvents() {
+            return Table(
+              columnWidths: const {
+                0: FlexColumnWidth(2), // Tên sự kiện (rộng hơn)
+                1: FlexColumnWidth(1.2),
+                2: FlexColumnWidth(1.2),
+                3: FlexColumnWidth(1.4), // Cột nút
+              },
+              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+              children: [
+                // 🔹 Dòng tiêu đề
+                const TableRow(
+                  decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(color: Colors.grey)),
+                  ),
                   children: [
-                    Expanded(
-                      flex: 2,
-                      child: GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => EventDetailScreen(eventId: ev['id'], groupId: widget.groupId,)),
-                        ),
-                        child: Text(
-                          ev['title'] ?? '',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF2E582B),
-                            decoration: TextDecoration.underline,
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: 6),
+                      child: Text('Tên sự kiện',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, color: Color(0xFF2E582B))),
+                    ),
+                    Text('Thời gian',
+                        style:
+                        TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2E582B))),
+                    Text('Tập hợp ở',
+                        style:
+                        TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2E582B))),
+                    SizedBox(), // cột trống cho nút
+                  ],
+                ),
+
+                // 🔹 Dòng dữ liệu
+                ...eventsList.map((ev) {
+                  final currentUid = _auth.currentUser?.uid;
+                  final joined = List<String>.from(ev['joined'] ?? []);
+                  final joinedByUser =
+                      currentUid != null && joined.contains(currentUid);
+
+                  return TableRow(
+                    decoration: const BoxDecoration(
+                      border: Border(bottom: BorderSide(color: Color(0xFFE0E0E0))),
+                    ),
+                    children: [
+                      // Tên sự kiện (click để xem chi tiết)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: GestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => EventDetailScreen(
+                                eventId: ev['id'],
+                                groupId: widget.groupId,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            ev['title'] ?? '',
+                            style: const TextStyle(
+                              color: Color(0xFF2E582B),
+                              fontWeight: FontWeight.bold,
+                              decoration: TextDecoration.underline,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ),
-                    ),
-                    Expanded(child: Text(ev['time'] ?? '')),
-                    Expanded(child: Text(ev['place'] ?? '')),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 200,
-                      child: ElevatedButton(
-                        onPressed: () => _toggleJoinEvent(ev['id']),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: joinedByUser ? const Color(0xFF9DB596) : Colors.white,
-                          side: const BorderSide(color: Color(0xFF2E582B)),
-                          foregroundColor: joinedByUser ? Colors.white : const Color(0xFF2E582B),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        child: Text(joinedByUser ? 'Đã tham gia' : 'Tham gia',)
+
+                      // Thời gian
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(ev['time'] ?? '',
+                            overflow: TextOverflow.ellipsis),
                       ),
-                    )
-                  ],
-                ),
-              );
-            }).toList(),
-          );
+
+                      // Tập hợp ở
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(ev['place'] ?? '',
+                            overflow: TextOverflow.ellipsis),
+                      ),
+
+                      // Nút tham gia
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: ElevatedButton(
+                          onPressed: () => _toggleJoinEvent(ev['id']),
+                          style: ElevatedButton.styleFrom(
+                            padding:
+                            const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            backgroundColor: joinedByUser
+                                ? const Color(0xFF9DB596)
+                                : Colors.white,
+                            side: const BorderSide(color: Color(0xFF2E582B)),
+                            foregroundColor: joinedByUser
+                                ? Colors.white
+                                : const Color(0xFF2E582B),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child:
+                          Text(joinedByUser ? 'Đã tham gia' : 'Tham gia'),
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ],
+            );
+          }
 
           Widget buildMembers() => Column(
             children: members.map((m) {
