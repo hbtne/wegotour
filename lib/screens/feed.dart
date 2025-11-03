@@ -31,10 +31,7 @@ class _FeedsState extends State<Feeds> {
   Future<void> _getUser() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      final doc = await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      final doc = await _firestore.collection('users').doc(user.uid).get();
 
       setState(() {
         userData = doc.data();
@@ -51,7 +48,10 @@ class _FeedsState extends State<Feeds> {
           _buildAddPost(userData?['avatar']),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore.collection('posts').orderBy('createdAt', descending: true).snapshots(),
+              stream: _firestore
+                  .collection('posts')
+                  .orderBy('createdAt', descending: true)
+                  .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -129,16 +129,15 @@ class _FeedsState extends State<Feeds> {
       ),
       actions: [
         IconButton(
-          icon: SvgPicture.string(chatFeedSVG, height: 30, width: 30),
-          onPressed: () async {
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const GroupMessageScreen(),
-              ),
-            );
-    }
-        ),
+            icon: SvgPicture.string(chatFeedSVG, height: 30, width: 30),
+            onPressed: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const GroupMessageScreen(),
+                ),
+              );
+            }),
       ],
     );
   }
@@ -153,19 +152,17 @@ class _FeedsState extends State<Feeds> {
             backgroundColor: Colors.transparent,
             backgroundImage: avatarUrl != null
                 ? NetworkImage(avatarUrl)
-                : const AssetImage(
-                'assets/default_avatar.png')
-            as ImageProvider,
-          ),          const SizedBox(width: 10),
+                : const AssetImage('assets/default_avatar.png')
+                    as ImageProvider,
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: TextField(
               readOnly: true, // để không bật bàn phím
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (context) => AddPostScreen()
-                  ),
+                  MaterialPageRoute(builder: (context) => AddPostScreen()),
                 );
               },
               decoration: InputDecoration(
@@ -173,7 +170,7 @@ class _FeedsState extends State<Feeds> {
                 filled: true,
                 fillColor: Colors.white,
                 contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
                   borderSide: const BorderSide(color: Color(0xff2e582b)),

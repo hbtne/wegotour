@@ -1,10 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:stour/screens/home.dart';
+import 'package:stour/widgets/timeline.dart';
+import 'package:stour/util/const.dart';
+import 'package:stour/screens/profile.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:stour/assets/icons/timeline_svg.dart';
+import 'package:stour/assets/icons/home_svg.dart';
 import 'package:stour/assets/icons/account_svg.dart';
+import 'package:stour/screens/feed.dart';
+import 'package:stour/assets/icons/group_bottom_bar.dart';
 import '../main.dart';
 
 List icons = [
