@@ -51,7 +51,10 @@ class _FeedsState extends State<Feeds> {
           _buildAddPost(userData?['avatar']),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore.collection('posts').orderBy('createdAt', descending: true).snapshots(),
+              stream: _firestore
+                  .collection('posts')
+                  .orderBy('createdAt', descending: true)
+                  .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -129,16 +132,15 @@ class _FeedsState extends State<Feeds> {
       ),
       actions: [
         IconButton(
-          icon: SvgPicture.string(chatFeedSVG, height: 30, width: 30),
-          onPressed: () async {
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const GroupMessageScreen(),
-              ),
-            );
-    }
-        ),
+            icon: SvgPicture.string(chatFeedSVG, height: 30, width: 30),
+            onPressed: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const GroupMessageScreen(),
+                ),
+              );
+            }),
       ],
     );
   }
@@ -153,10 +155,10 @@ class _FeedsState extends State<Feeds> {
             backgroundColor: Colors.transparent,
             backgroundImage: avatarUrl != null
                 ? NetworkImage(avatarUrl)
-                : const AssetImage(
-                'assets/default_avatar.png')
-            as ImageProvider,
-          ),          const SizedBox(width: 10),
+                : const AssetImage('assets/default_avatar.png')
+                    as ImageProvider,
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: TextField(
               readOnly: true, // để không bật bàn phím
