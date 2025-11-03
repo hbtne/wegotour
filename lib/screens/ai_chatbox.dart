@@ -1,13 +1,12 @@
-// ...existing code...
-// ...existing code...
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-// ...existing code...
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:stour/services/ai_service.dart';
+import 'package:stour/screens/details.dart';
+import 'package:stour/util/places.dart';
 
-// ...existing code...
 class AIChatScreen extends StatefulWidget {
   const AIChatScreen({super.key});
 
@@ -24,8 +23,81 @@ class _AIChatScreenState extends State<AIChatScreen> {
   File? _pickedImage;
   bool _isLoading = false;
 
+  // Speech to text
+  late stt.SpeechToText _speech;
+  bool _speechAvailable = false;
+  bool _isListening = false;
+  double _soundLevel = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _speech = stt.SpeechToText();
+    _initSpeech();
+  }
+
+  Future<void> _initSpeech() async {
+    try {
+      _speechAvailable = await _speech.initialize(
+        onStatus: (status) {
+          // status can be "listening", "notListening", "done" ...
+          if (kDebugMode) print('Speech status: $status');
+          if (status == 'notListening' || status == 'done') {
+            setState(() => _isListening = false);
+          }
+        },
+        onError: (error) {
+          if (kDebugMode) print('Speech error: $error');
+          setState(() => _isListening = false);
+        },
+      );
+      setState(() {});
+    } catch (e) {
+      if (kDebugMode) print('Init speech failed: $e');
+      setState(() => _speechAvailable = false);
+    }
+  }
+
+  Future<void> _startListening() async {
+    if (!_speechAvailable) {
+      await _initSpeech();
+      if (!_speechAvailable) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Micro không khả dụng trên thiết bị này')),
+        );
+        return;
+      }
+    }
+    setState(() => _isListening = true);
+    await _speech.listen(
+      onResult: (result) {
+        // result.recognizedWords cập nhật realtime
+        setState(() {
+          _controller.text = result.recognizedWords;
+          _controller.selection = TextSelection.fromPosition(
+              TextPosition(offset: _controller.text.length));
+        });
+        // Nếu muốn tự động gửi khi finalResult == true:
+        // if (result.finalResult) _send();
+      },
+      listenFor: const Duration(seconds: 60),
+      pauseFor: const Duration(seconds: 3),
+      localeId: 'vi_VN', // ưu tiên tiếng Việt
+      onSoundLevelChange: (level) {
+        setState(() => _soundLevel = level);
+      },
+      cancelOnError: true,
+    );
+  }
+
+  Future<void> _stopListening() async {
+    await _speech.stop();
+    setState(() => _isListening = false);
+  }
+
   Future<void> _pickImage() async {
-    final XFile? picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 75);
+    final XFile? picked =
+        await _picker.pickImage(source: ImageSource.gallery, imageQuality: 75);
     if (picked != null) {
       setState(() => _pickedImage = File(picked.path));
     }
@@ -37,23 +109,61 @@ class _AIChatScreenState extends State<AIChatScreen> {
 
     setState(() {
       if (text.isNotEmpty) _messages.add({'role': 'user', 'content': text});
-      if (_pickedImage != null) _messages.add({'role': 'user', 'content': '[Image]', 'image': _pickedImage!.path});
+      if (_pickedImage != null)
+        _messages.add({
+          'role': 'user',
+          'content': '[Image]',
+          'image': _pickedImage!.path
+        });
       _isLoading = true;
       _controller.clear();
     });
 
     try {
       String aiResponse;
+
+      // If there's an image -> fake response: always Dinh Độc Lập and include Place object
       if (_pickedImage != null) {
-        final question = text.isEmpty ? 'Đây là địa điểm nào?' : text;
-        aiResponse = await _gemini.sendImageAndAsk(_pickedImage!, question);
-      } else {
-        aiResponse = await _gemini.sendMessage(text);
+        final demoPlace = Place(
+          id: 'dinh_doc_lap',
+          name: 'Dinh Độc Lập',
+          img:
+              'https://res.cloudinary.com/dibmnb2rp/image/upload/v1762172020/posts/sr6erbwwchoent8wi3zy.jpg',
+          address: '135 Nam Kỳ Khởi Nghĩa',
+          price: 60000.0,
+          openTime: 8,
+          closeTime: 17,
+          history:
+              'Dinh Độc Lập là một tòa dinh thự tại Thành phố Hồ Chí Minh, từng là nơi ở và làm việc của Tổng thống Việt Nam Cộng hòa trước Sự kiện 30 tháng 4 năm 1975. Hiện nay, Dinh Độc Lập đã được Chính phủ Việt Nam xếp hạng là di tích quốc gia đặc biệt. Cơ quan quản lý di tích văn hoá Dinh Độc Lập có tên là Hội trường Thống Nhất thuộc Văn phòng Chính phủ.',
+          rating: '4,6',
+          duration: 60,
+          district: 'Quận 1',
+          city: 'TP.HCM',
+          isAccepted: true,
+        );
+        final canned =
+            'Đây là Dinh Độc Lập (Independence Palace) — một biểu tượng lịch sử của TP. Hồ Chí Minh. '
+            'Dinh được xây dựng từ thời thuộc Pháp, là nơi diễn ra nhiều sự kiện lịch sử quan trọng.';
+
+        setState(() {
+          _messages.add({'role': 'ai', 'content': canned, 'place': demoPlace});
+          _pickedImage = null;
+          _isLoading = false;
+        });
+        return;
       }
 
+      // If only text -> call AI normally
+      aiResponse = await _gemini.sendMessageWithHistory(
+        _messages
+            .map((m) => {
+                  'role': m['role'] as String,
+                  'content': (m['content'] ?? '').toString(),
+                })
+            .toList(),
+      );
       setState(() {
         _messages.add({'role': 'ai', 'content': aiResponse});
-        _pickedImage = null;
       });
     } catch (e) {
       setState(() {
@@ -67,31 +177,54 @@ class _AIChatScreenState extends State<AIChatScreen> {
   Widget _buildBubble(Map<String, dynamic> msg) {
     final isUser = msg['role'] == 'user';
     final imagePath = msg['image'] as String?;
+    final placeObj = msg['place'] as Place?;
+
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        constraints:
+            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
         decoration: BoxDecoration(
           color: isUser ? const Color(0xFFDFF7E8) : const Color(0xFFF0F0F0),
           borderRadius: BorderRadius.circular(16),
         ),
-        child: imagePath != null
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Image.file(File(imagePath)),
-                  if (msg['content'] != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(msg['content']),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (imagePath != null) ...[
+              Image.file(File(imagePath)),
+              if (msg['content'] != null) const SizedBox(height: 8),
+            ],
+            if (msg['content'] != null) Text(msg['content']),
+            if (placeObj != null) ...[
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => DetailScreen(placeToDisplay: placeObj),
                     ),
-                ],
+                  );
+                },
+                child: const Text('Xem chi tiết',
+                    style: TextStyle(color: Color(0xFF3B6332))),
               )
-            : Text(msg['content'] ?? ''),
+            ]
+          ],
+        ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _speech.stop();
+    _speech.cancel();
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
@@ -113,7 +246,10 @@ class _AIChatScreenState extends State<AIChatScreen> {
               children: [
                 const Text(
                   'Wee AI',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF3B6332)),
+                  style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF3B6332)),
                 ),
                 const SizedBox(height: 12),
                 Expanded(
@@ -133,10 +269,12 @@ class _AIChatScreenState extends State<AIChatScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.file(_pickedImage!, width: 80, height: 80, fit: BoxFit.cover),
+                          child: Image.file(_pickedImage!,
+                              width: 80, height: 80, fit: BoxFit.cover),
                         ),
                         const SizedBox(width: 12),
-                        Expanded(child: Text('Ảnh đã chọn - sẵn sàng gửi')),
+                        const Expanded(
+                            child: Text('Ảnh đã chọn - sẵn sàng gửi')),
                         IconButton(
                           icon: const Icon(Icons.close),
                           onPressed: () => setState(() => _pickedImage = null),
@@ -150,13 +288,29 @@ class _AIChatScreenState extends State<AIChatScreen> {
                       icon: const Icon(Icons.photo, color: Color(0xFF3B6332)),
                       onPressed: _pickImage,
                     ),
+                    // Mic icon
+                    IconButton(
+                      icon: Icon(
+                        _isListening ? Icons.mic : Icons.mic_none,
+                        color: _isListening ? Colors.red : const Color(0xFF3B6332),
+                      ),
+                      onPressed: () async {
+                        if (_isListening) {
+                          await _stopListening();
+                        } else {
+                          await _startListening();
+                        }
+                      },
+                    ),
                     Expanded(
                       child: TextField(
                         controller: _controller,
                         decoration: InputDecoration(
                           hintText: 'Nhập tin nhắn...',
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30)),
                         ),
                         onSubmitted: (_) => _send(),
                       ),
@@ -165,14 +319,29 @@ class _AIChatScreenState extends State<AIChatScreen> {
                     _isLoading
                         ? const Padding(
                             padding: EdgeInsets.symmetric(horizontal: 12),
-                            child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
+                            child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2)),
                           )
                         : IconButton(
-                            icon: const Icon(Icons.send, color: Color(0xFF3B6332)),
+                            icon: const Icon(Icons.send,
+                                color: Color(0xFF3B6332)),
                             onPressed: _send,
                           ),
                   ],
                 ),
+                // Optional simple sound level indicator while listening
+                if (_isListening)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6.0),
+                    child: LinearProgressIndicator(
+                      value: (_soundLevel / 10).clamp(0.0, 1.0),
+                      backgroundColor: Colors.grey[200],
+                      color: Colors.redAccent,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -181,4 +350,3 @@ class _AIChatScreenState extends State<AIChatScreen> {
     );
   }
 }
-// ...existing code...
