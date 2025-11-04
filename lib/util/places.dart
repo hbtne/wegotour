@@ -13,7 +13,15 @@ class Place {
   final num closeTime;
   final String district;
   final String city;
-   bool isAccepted; // Thêm trường isAccepted
+  final int checkinCount;
+  final int reviewCount;
+  final int checkinCountMonth;
+  final int reviewCountMonth;
+  final String ratingMonth;
+  final int checkinCountYear;
+  final int reviewCountYear;
+  final String ratingYear;
+  bool isAccepted; // Thêm trường isAccepted
 
   Place({
     required this.id,
@@ -28,6 +36,14 @@ class Place {
     required this.city,
     required this.openTime,
     required this.closeTime,
+    required this.checkinCount,
+    required this.reviewCount,
+    required this.checkinCountMonth,
+    required this.reviewCountMonth,
+    required this.ratingMonth,
+    required this.checkinCountYear,
+    required this.reviewCountYear,
+    required this.ratingYear,
     required this.isAccepted,
   });
   factory Place.fromDocument(DocumentSnapshot doc) {
@@ -46,6 +62,14 @@ class Place {
       city: data['city'] ?? '',
       openTime: data['opentime'] ?? 0,
       closeTime: data['closetime'] ?? 0,
+      checkinCount: data['checkinCount'] ?? 10,
+      reviewCount: data['reviewCount'] ?? 25,
+      checkinCountMonth: data['checkinCountMonth'] ?? 10,
+      reviewCountMonth: data['reviewCountMonth'] ?? 25,
+      ratingMonth: data['ratingMonth'] ?? "5",
+      checkinCountYear: data['checkinCountYear'] ?? 10,
+      reviewCountYear: data['reviewCountYear'] ?? 25,
+      ratingYear: data['ratingYear'] ?? "4.9",
       isAccepted: data['isAccepted'] ?? false, // Thêm trường isAccepted
     );
   }
@@ -93,6 +117,14 @@ class SavedTourClass {
         closeTime: placeData['closeTime'] ?? 0,
         district: placeData['district'] ?? '',
         city: placeData['city'] ?? '',
+        checkinCount: data['checkinCount'] ?? 10,
+        reviewCount: data['reviewCount'] ?? 25,
+        checkinCountMonth: data['checkinCountMonth'] ?? 10,
+        reviewCountMonth: data['reviewCountMonth'] ?? 25,
+        ratingMonth: data['ratingMonth'] ?? "5",
+        checkinCountYear: data['checkinCountYear'] ?? 10,
+        reviewCountYear: data['reviewCountYear'] ?? 25,
+        ratingYear: data['ratingYear'] ?? "4.9",
         isAccepted: placeData['isAccepted'] ?? true, // Thêm trường isAccepted
       );
 

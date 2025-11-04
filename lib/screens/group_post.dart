@@ -9,6 +9,7 @@ import 'package:stour/screens/group_message.dart';
 import 'package:stour/services/auth_service.dart';
 import 'package:stour/widgets/item_post.dart';
 import 'addPost_screen.dart';
+import 'package:async/async.dart';
 
 class GroupPostScreen extends StatefulWidget {
   final String groupId;
@@ -121,52 +122,51 @@ class _GroupPostScreenState extends State<GroupPostScreen> {
                     return const Center(child: CircularProgressIndicator());
                   }
 
-                  final groupData = groupSnapshot.data!.data() as Map<String, dynamic>?;
-                  final postIds = List<String>.from(groupData?['posts'] ?? []);
+                  final groupData = groupSnapshot.data!.data() as Map<String, dynamic>? ?? {};
+                  final postIds = List<String>.from(groupData['posts'] ?? []);
 
                   if (postIds.isEmpty) {
                     return const Center(child: Text('Chưa có bài đăng nào.'));
                   }
 
-                  // 🔹 Chia nhỏ postIds thành từng batch (tối đa 10)
-                  final batches = <Future<QuerySnapshot>>[];
-                  for (var i = 0; i < postIds.length; i += 10) {
-                    final batch = postIds.skip(i).take(10).toList();
-                    batches.add(_firestore
-                        .collection('posts')
-                        .where(FieldPath.documentId, whereIn: batch)
-                        .get());
-                  }
-
-                  return FutureBuilder<List<QuerySnapshot>>(
-                    future: Future.wait(batches),
-                    builder: (context, postsSnapshots) {
-                      if (!postsSnapshots.hasData) {
+                  // 🔹 Lấy tất cả users trước, dùng FutureBuilder vì ít thay đổi
+                  return FutureBuilder<QuerySnapshot>(
+                    future: _firestore.collection('users').get(),
+                    builder: (context, usersSnapshot) {
+                      if (!usersSnapshot.hasData) {
                         return const Center(child: CircularProgressIndicator());
                       }
 
-                      // 🔹 Gom tất cả post từ nhiều batch lại
-                      final allPosts = postsSnapshots.data!
-                          .expand((snap) => snap.docs)
-                          .toList()
-                        ..sort((a, b) {
-                          final at = (a['createdAt'] as Timestamp?)?.toDate() ?? DateTime(0);
-                          final bt = (b['createdAt'] as Timestamp?)?.toDate() ?? DateTime(0);
-                          return bt.compareTo(at);
-                        });
+                      final users = {
+                        for (var u in usersSnapshot.data!.docs)
+                          u.id: u.data() as Map<String, dynamic>
+                      };
 
-                      // 🔹 Lấy tất cả user (để hiển thị avatar, username)
-                      return FutureBuilder<QuerySnapshot>(
-                        future: _firestore.collection('users').get(),
-                        builder: (context, usersSnapshot) {
-                          if (!usersSnapshot.hasData) {
+                      // 🔹 Stream cho posts, chia batch tối đa 10
+                      final postStreams = <Stream<QuerySnapshot>>[];
+                      for (var i = 0; i < postIds.length; i += 10) {
+                        final batch = postIds.skip(i).take(10).toList();
+                        postStreams.add(_firestore
+                            .collection('posts')
+                            .where(FieldPath.documentId, whereIn: batch)
+                            .snapshots());
+                      }
+
+                      return StreamBuilder<List<QuerySnapshot>>(
+                        stream: StreamZip(postStreams),
+                        builder: (context, postsSnapshots) {
+                          if (!postsSnapshots.hasData) {
                             return const Center(child: CircularProgressIndicator());
                           }
 
-                          final users = {
-                            for (var u in usersSnapshot.data!.docs)
-                              u.id: u.data() as Map<String, dynamic>
-                          };
+                          final allPosts = postsSnapshots.data!
+                              .expand((snap) => snap.docs)
+                              .toList()
+                            ..sort((a, b) {
+                              final at = (a['createdAt'] as Timestamp?)?.toDate() ?? DateTime(0);
+                              final bt = (b['createdAt'] as Timestamp?)?.toDate() ?? DateTime(0);
+                              return bt.compareTo(at);
+                            });
 
                           return ListView.builder(
                             itemCount: allPosts.length,
@@ -199,7 +199,7 @@ class _GroupPostScreenState extends State<GroupPostScreen> {
                   );
                 },
               ),
-            ),
+            )
           ],
         ),
       ),
@@ -217,6 +217,7 @@ class _GroupPostScreenState extends State<GroupPostScreen> {
           fontWeight: FontWeight.bold,
           color: Color(0xFF3B6332),
         ),
+        overflow: TextOverflow.ellipsis,
       ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Color(0xFF23340A)),
@@ -263,7 +264,7 @@ class _GroupPostScreenState extends State<GroupPostScreen> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => AddPostScreen(groupId: widget.groupId,)),
+                  MaterialPageRoute(builder: (context) => AddPostScreen(groupId: widget.groupId, groupName: widget.groupName,)),
                 );
               },
               decoration: InputDecoration(

@@ -346,59 +346,10 @@ class _AddPostScreenState extends State<AddPostScreen> {
               ),
             ),
 
-
-            // const SizedBox(height: 10),
-            //
-            // Container(
-            //   padding: const EdgeInsets.all(10),
-            //   decoration: BoxDecoration(
-            //     border: Border.all(color: Colors.grey),
-            //     borderRadius: BorderRadius.circular(10),
-            //   ),
-            //   child: Row(
-            //     children: [
-            //       const Icon(Icons.location_on, color: Color(0xFFFFD166)),
-            //       const SizedBox(width: 8),
-            //       Expanded(
-            //         child: Wrap(
-            //           spacing: 6.0,
-            //           children: selectedPlaces.map((place) {
-            //             return Chip(
-            //               label: Text(place['name']),
-            //               onDeleted: () => _togglePlaceSelection(place),
-            //             );
-            //           }).toList(),
-            //         ),
-            //       ),
-            //     ],
-            //   ),
-            // ),
-
-            // const SizedBox(height: 20),
-            // if (selectedPlaces.isNotEmpty)
-            //   Wrap(
-            //     spacing: 6.0,
-            //     children: selectedPlaces.map((place) {
-            //       return Chip(
-            //         label: Text(place['name']),
-            //         onDeleted: () => _togglePlaceSelection(place),
-            //       );
-            //     }).toList(),
-            //   ),
-
-          // const SizedBox(height: 8),
-          //   TextField(
-          //     controller: _locationController,
-          //     decoration: InputDecoration(
-          //       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          //       prefixIcon: const Icon(Icons.location_on, color: Color(0xFFFFD166)),
-          //     ),
-          //   ),
             const SizedBox(height: 20),
             const Text('File đính kèm', style: TextStyle(color: Color(0xFF3B6332), fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
 
-            // Hiển thị ảnh đã có (url)
             if (_existingImageUrls.isNotEmpty)
               SizedBox(
                 height: 120,

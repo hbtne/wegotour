@@ -32,6 +32,14 @@ Stream<List<Place>> getAllPlaceFoodStream(String collection) {
           closeTime: data['closetime'] ?? 0,
           district: data['district'] ?? '',
           openTime: data['opentime'] ?? 0,
+          checkinCount: data['checkinCount'] ?? 10,
+          reviewCount: data['reviewCount'] ?? 25,
+          checkinCountMonth: data['checkinCountMonth'] ?? 10,
+          reviewCountMonth: data['reviewCountMonth'] ?? 25,
+          ratingMonth: data['ratingMonth'] ?? '5',
+          checkinCountYear: data['checkinCountYear'] ?? 10,
+          reviewCountYear: data['reviewCountYear'] ?? 25,
+          ratingYear: data['ratingYear'] ?? '4.9',
           isAccepted: data['isAccepted'] ?? false, // Thêm trường isAccepted
         );
 
@@ -84,6 +92,14 @@ Future<void> saveTourToFirebase(String userId, SavedTourClass savedTour) async {
           'closeTime': place.closeTime,
           'district': place.district,
           'city': place.city,
+          'checkinCount': place.checkinCount,
+          'reviewCount': place.reviewCount,
+          'checkinCountMonth': place.checkinCountMonth,
+          'reviewCountMonth': place.reviewCountMonth,
+          'ratingMonth': place.ratingMonth,
+          'checkinCountYear': place.checkinCountYear,
+          'reviewCountYear': place.reviewCountYear,
+          'ratingYear': place.ratingYear,
           'isAccepted': place.isAccepted, // Thêm trường isAccepted
         });
       }

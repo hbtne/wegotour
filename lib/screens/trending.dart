@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:stour/assets/icons/rankings_svg.dart';
+import 'package:stour/screens/ranking_screen.dart';
 import 'package:stour/util/places.dart';
 import 'package:stour/widgets/search_card.dart';
 import 'package:stour/widgets/trending_place.dart';
@@ -55,10 +58,22 @@ class _TrendingState extends State<Trending> {
         title: const Text(
           "Địa Điểm",
           style: TextStyle(
-            color: Color.fromARGB(255, 35, 52, 10),
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF3B6332),
           ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: SvgPicture.string(rankingsSVG, height: 30, width: 30),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => RankingScreen(source: widget.source)),
+              );
+            },
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10.0),

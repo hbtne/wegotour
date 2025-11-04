@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:stour/services/auth_service.dart';
 import 'package:stour/util/const.dart';
 
 import 'addPost_screen.dart';
@@ -42,6 +43,7 @@ class _PostScreenState extends State<PostScreen> {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection('posts')
+          .where('authorId', isEqualTo: AuthService.getCurrentUserId())
           .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
