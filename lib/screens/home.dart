@@ -11,7 +11,7 @@ import 'package:stour/util/places.dart';
 import 'package:stour/widgets/place_card.dart';
 import 'package:stour/widgets/search_card.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:stour/assets/icons/ai_svg.dart'; 
+import 'package:stour/assets/icons/ai_svg.dart';
 import 'package:stour/screens/ai_chatbox.dart';
 
 class GoogleMapsController extends StatefulWidget {
@@ -27,12 +27,9 @@ class _GoogleMapsControllerState extends State<GoogleMapsController> {
   LatLng _center = const LatLng(10.870051045334415, 106.80301118465547);
   final Set<Marker> _markers = {};
 
-
-
   @override
   void initState() {
     super.initState();
-
 
     determinePosition().then(
       (position) {
@@ -172,18 +169,21 @@ class _HomeState extends State<Home> {
                     StreamBuilder<List<Place>>(
                       stream: places,
                       builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator());
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                              child: CircularProgressIndicator());
                         } else if (snapshot.hasError) {
                           return Center(child: Text('Lỗi: ${snapshot.error}'));
-                        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        } else if (!snapshot.hasData ||
+                            snapshot.data!.isEmpty) {
                           return const Center(child: Text('Không có dữ liệu.'));
                         } else {
                           final places = snapshot.data!;
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              buildPlaceRow('Địa Điểm Văn Hóa', places, context),
+                              buildPlaceRow('Địa Điểm', places, context),
                               buildPlaceList(context, places),
                             ],
                           );
@@ -195,11 +195,14 @@ class _HomeState extends State<Home> {
                     StreamBuilder<List<Place>>(
                       stream: food,
                       builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator());
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                              child: CircularProgressIndicator());
                         } else if (snapshot.hasError) {
                           return Center(child: Text('Lỗi: ${snapshot.error}'));
-                        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        } else if (!snapshot.hasData ||
+                            snapshot.data!.isEmpty) {
                           return const Center(child: Text('Không có dữ liệu.'));
                         } else {
                           final food = snapshot.data!;
@@ -289,7 +292,7 @@ Widget buildPlaceRow(String place, List<Place> source, BuildContext context) {
         style: const TextStyle(
           fontSize: 20.0,
           fontWeight: FontWeight.w800,
-          color:  Color(0xFF3B6332),
+          color: Color(0xFF3B6332),
         ),
       ),
       TextButton(

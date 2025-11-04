@@ -27,7 +27,7 @@ class GroupListScreen extends StatelessWidget {
                     onPressed: () => Navigator.pop(context),
                   ),
                   const Text(
-                    'DANH SÁCH NHÓM',
+                    'TẤT CẢ NHÓM',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
