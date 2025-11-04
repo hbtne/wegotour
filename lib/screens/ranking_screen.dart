@@ -186,13 +186,13 @@ class _RankingScreenState extends State<RankingScreen> {
       case 'reviewCountMonth':
         return p.reviewCountMonth ?? 0;
       case 'ratingMonth':
-        return num.tryParse(p.ratingMonth) ?? 4.9;
+        return num.tryParse(p.ratingMonth!) ?? 4.9;
       case 'checkinCountYear':
         return p.checkinCountYear ?? 0;
       case 'reviewCountYear':
         return p.reviewCountYear ?? 0;
       case 'ratingYear':
-        return num.tryParse(p.ratingYear) ?? 4.9;
+        return num.tryParse(p.ratingYear!) ?? 4.9;
       default:
         return 0;
     }

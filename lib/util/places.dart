@@ -13,14 +13,14 @@ class Place {
   final num closeTime;
   final String district;
   final String city;
-  final int checkinCount;
-  final int reviewCount;
-  final int checkinCountMonth;
-  final int reviewCountMonth;
-  final String ratingMonth;
-  final int checkinCountYear;
-  final int reviewCountYear;
-  final String ratingYear;
+  final int? checkinCount;
+  final int? reviewCount;
+  final int? checkinCountMonth;
+  final int? reviewCountMonth;
+  final String? ratingMonth;
+  final int? checkinCountYear;
+  final int? reviewCountYear;
+  final String? ratingYear;
   bool isAccepted; // Thêm trường isAccepted
 
   Place({
@@ -36,14 +36,14 @@ class Place {
     required this.city,
     required this.openTime,
     required this.closeTime,
-    required this.checkinCount,
-    required this.reviewCount,
-    required this.checkinCountMonth,
-    required this.reviewCountMonth,
-    required this.ratingMonth,
-    required this.checkinCountYear,
-    required this.reviewCountYear,
-    required this.ratingYear,
+     this.checkinCount,
+     this.reviewCount,
+     this.checkinCountMonth,
+     this.reviewCountMonth,
+     this.ratingMonth,
+     this.checkinCountYear,
+     this.reviewCountYear,
+     this.ratingYear,
     required this.isAccepted,
   });
   factory Place.fromDocument(DocumentSnapshot doc) {
