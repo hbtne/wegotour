@@ -1,0 +1,46 @@
+[33m27edc10[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m, [m[1;31morigin/HEAD[m[33m)[m p2p text w send file and speech
+[33m0188c11[m can send img in chat
+[33mc8f7b0b[m ui fixed
+[33mf4774f0[m add markdown wth respond
+[33m3e5dc0e[m speech with AI
+[33m94ff12e[m speech to text with AI
+[33m4852152[m fix: show group name post UI
+[33m36e0e26[m fix home screen - add AI button
+[33m3316f13[m add AI button
+[33m0e49dd0[m fix: event group information again
+[33m73e76fe[m fix: event group information
+[33m5aef921[m fix: search chat message
+[33m05f912d[m Merge remote-tracking branch 'origin/master'
+[33m275e0ad[m feat(android): add feature community
+[33mb4a5675[m[33m ([m[1;31morigin/final[m[33m, [m[1;32mfeature/ai[m[33m)[m fix conflict
+[33m3748b61[m Merge branch 'community' into feature/ai
+[33m1112c9d[m feat(android): add feature community
+[33mc990d8f[m basic AI
+[33mdb77c37[m AI bot
+[33me2ded34[m[33m ([m[1;31morigin/upgrage-flutter[m[33m, [m[1;32mupgrage-flutter[m[33m)[m fix(android): add missing package name for com.google.android.gms
+[33m943d320[m refactor: upgrade flutter
+[33mf9189a8[m[33m ([m[1;31morigin/wip[m[33m, [m[1;31morigin/main[m[33m, [m[1;32mmain[m[33m)[m statistics
+[33mcd4dc29[m admin
+[33m5165692[m noti + check status
+[33mff849d8[m UD minigame, post, tours, place, food
+[33maeedacd[m buslogout
+[33me6d9ede[m LoginStatus
+[33m1705c8e[m merge
+[33meb7098c[m save tour
+[33mb3a4cef[m dashboard business
+[33m6676eae[m Merge branch 'main' of https://github.com/tahomee/DA2
+[33m2cbf854[m role selection
+[33m0b1618c[m add place
+[33m2ddd191[m add place
+[33mb261896[m merge
+[33m1c96155[m merge
+[33m32a91bf[m fix pixel
+[33mfdef6aa[m auth
+[33ma1fabc0[m create minigame and play minigame
+[33mda0cee6[m add post, see post
+[33mdcbb399[m  link to clou, add addPost screen
+[33m2ba3e3e[m fix profile
+[33mfdf0527[m handle  map
+[33mf0487a5[m add data
+[33m96dbb8e[m Initial commit
+[33mb30cf0b[m Initial commit

@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class EventDetailScreen extends StatelessWidget {
   final String eventId;
@@ -17,10 +19,7 @@ class EventDetailScreen extends StatelessWidget {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('events')
-              .doc(eventId)
-              .snapshots(),
+          stream: FirebaseFirestore.instance.collection('events').doc(eventId).snapshots(),
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
               return const Center(child: CircularProgressIndicator());
@@ -29,11 +28,11 @@ class EventDetailScreen extends StatelessWidget {
               return const Center(child: Text('Không tìm thấy sự kiện'));
             }
 
-            final event = snapshot.data!;
-            final creator = event['createdBy'];
-            final members = event['joined'];
+            final doc = snapshot.data!;
+            final creator = doc['createdBy'];
+            final members = doc['joined'] ?? [];
             final currentUid = FirebaseAuth.instance.currentUser?.uid;
-            final joined = members.map((e) => e['id'] as String).toList();
+            final joined = (members as List).map((e) => e['id'] as String).toList();
             final joinedByUser = currentUid != null && joined.contains(currentUid);
 
             return SingleChildScrollView(
@@ -66,18 +65,15 @@ class EventDetailScreen extends StatelessWidget {
                   const SizedBox(height: 8),
 
                   // 🔹 Nội dung sự kiện
-                  _buildInfoItem('Tên sự kiện', event['title']),
-                  _buildInfoItem('Địa điểm', event['destination']),
-                  _buildInfoItem('Thời gian', _formatTimeRange(
-                      event['startDate'],
-                      event['startTime'],
-                      event['endDate'],
-                      event['endTime'],
-                    ),
+                  _buildInfoItem('Tên sự kiện', doc['title']),
+                  _buildInfoItem('Địa điểm', doc['destination']),
+                  _buildInfoItem(
+                    'Thời gian',
+                    _formatTimeRange(doc['startDate'], doc['startTime'], doc['endDate'], doc['endTime']),
                   ),
-                  _buildInfoItem('Nơi tập trung', event['place']),
-                  _buildInfoItem('Mô tả', event['description']),
-                  _buildInfoItem('Lưu ý', event['note']),
+                  _buildInfoItem('Nơi tập trung', doc['place']),
+                  _buildInfoItem('Mô tả', doc['description']),
+                  _buildInfoItem('Lưu ý', doc['note']),
 
                   const SizedBox(height: 16),
 
@@ -95,7 +91,7 @@ class EventDetailScreen extends StatelessWidget {
                     children: [
                       CircleAvatar(
                         radius: 30,
-                        backgroundImage: NetworkImage(creator['avatarUrl']),
+                        backgroundImage: NetworkImage(creator['avatarUrl'] ?? ''),
                       ),
                       const SizedBox(width: 12),
                       Text(
@@ -135,15 +131,15 @@ class EventDetailScreen extends StatelessWidget {
                   // 🔹 Nút tham gia
                   Center(
                     child: ElevatedButton(
-                          onPressed: () => _toggleJoinEvent(eventId),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: joinedByUser ? const Color(0xFF9DB596) : Colors.white,
-                            side: const BorderSide(color: Color(0xFF2E582B)),
-                            foregroundColor: joinedByUser ? Colors.white : const Color(0xFF2E582B),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          child: Text(joinedByUser ? 'Đã tham gia' : 'Tham gia',)
+                      onPressed: () => _toggleJoinEvent(context, eventId),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: joinedByUser ? const Color(0xFF9DB596) : Colors.white,
+                        side: const BorderSide(color: Color(0xFF2E582B)),
+                        foregroundColor: joinedByUser ? Colors.white : const Color(0xFF2E582B),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
+                      child: Text(joinedByUser ? 'Đã tham gia' : 'Tham gia'),
+                    ),
                   ),
                 ],
               ),
@@ -157,12 +153,11 @@ class EventDetailScreen extends StatelessWidget {
   String _formatTimeRange(String? startDate, String? startTime, String? endDate, String? endTime) {
     if (startDate == null || startTime == null || endDate == null || endTime == null) return '';
 
-    // Parse ngày để format lại thành dd/MM/yyyy
     try {
       final start = DateTime.parse(startDate);
       final end = DateTime.parse(endDate);
-      final startStr = '${startTime.replaceAll(':', 'h ')}${DateFormat('dd/MM/yyyy').format(start)}';
-      final endStr = '${endTime.replaceAll(':', 'h ')}${DateFormat('dd/MM/yyyy').format(end)}';
+      final startStr = '${startTime.replaceAll(':', 'h ')} ${DateFormat('dd/MM/yyyy').format(start)}';
+      final endStr = '${endTime.replaceAll(':', 'h ')} ${DateFormat('dd/MM/yyyy').format(end)}';
       return '$startStr - $endStr';
     } catch (e) {
       return '$startTime $startDate - $endTime $endDate';
@@ -197,7 +192,7 @@ class EventDetailScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _toggleJoinEvent(String eventId) async {
+  Future<void> _toggleJoinEvent(BuildContext context, String eventId) async {
     final user = FirebaseAuth.instance.currentUser;
 
     final docRef = FirebaseFirestore.instance.collection('events').doc(eventId);
@@ -232,20 +227,79 @@ class EventDetailScreen extends StatelessWidget {
 
     final newEvents = events.map((ev) {
       if (ev['id'] == eventId) {
-        final joined = List<String>.from(ev['joined'] ?? []);
-        if (joined.contains(user?.uid)) {
-          joined.remove(user?.uid);
+        final joinedList = List<String>.from(ev['joined'] ?? []);
+        if (joinedList.contains(user?.uid)) {
+          joinedList.remove(user?.uid);
         } else {
-          joined.add(user!.uid);
+          joinedList.add(user!.uid);
         }
         updated = true;
-        return {...ev, 'joined': joined};
+        return {...ev, 'joined': joinedList};
       }
       return ev;
     }).toList();
 
     if (updated) {
       await groupRef.update({'events': newEvents});
+    }
+
+    // If just joined, open Google Calendar link with event data
+    if (existingIndex < 0) {
+      await _addToGoogleCalendar(context, data);
+    }
+  }
+
+  Future<void> _addToGoogleCalendar(BuildContext context, Map<String, dynamic> event) async {
+    try {
+      final title = (event['title'] ?? '').toString();
+      final description = (event['description'] ?? '').toString();
+      final note = (event['note'] ?? '').toString();
+      final details = description + (note.isNotEmpty ? '\nLưu ý: $note' : '');
+      final location = (event['place'] ?? event['destination'] ?? '').toString();
+
+      final String? sd = event['startDate'] as String?;
+      final String? st = event['startTime'] as String?;
+      final String? ed = event['endDate'] as String?;
+      final String? et = event['endTime'] as String?;
+
+      if (sd == null || st == null || ed == null || et == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Thiếu thời gian sự kiện để thêm vào Google Calendar')));
+        return;
+      }
+
+      DateTime parseDateTime(String date, String time) {
+        final d = DateTime.parse(date);
+        final parts = time.split(':');
+        final h = int.tryParse(parts[0]) ?? 0;
+        final m = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+        return DateTime(d.year, d.month, d.day, h, m);
+      }
+
+      final start = parseDateTime(sd, st);
+      final end = parseDateTime(ed, et);
+
+      // Google Calendar expects UTC formatted like 20250101T090000Z
+      final fmt = DateFormat("yyyyMMdd'T'HHmmss'Z'");
+
+      final startStr = fmt.format(start.toUtc());
+      final endStr = fmt.format(end.toUtc());
+
+      final uri = Uri.parse(
+        'https://www.google.com/calendar/render?action=TEMPLATE'
+        '&text=${Uri.encodeComponent(title)}'
+        '&details=${Uri.encodeComponent(details)}'
+        '&location=${Uri.encodeComponent(location)}'
+        '&dates=$startStr/$endStr',
+      );
+
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Không thể mở Google Calendar')));
+      }
+    } catch (e) {
+      if (kDebugMode) print('_addToGoogleCalendar error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Thêm lịch thất bại')));
     }
   }
 
@@ -259,39 +313,35 @@ class EventDetailScreen extends StatelessWidget {
             height: 55,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isAdd
-                  ? const Color(0xFFC2D3B3)
-                  : const Color(0xFFA2B293),
+              color: isAdd ? const Color(0xFFC2D3B3) : const Color(0xFFA2B293),
             ),
             child: Center(
               child: isAdd
                   ? const Text(
-                '+',
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF324E2A),
-                ),
-              )
+                      '+',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF324E2A),
+                      ),
+                    )
                   : ClipOval(
-                child: (avatar != null)
-                    ? Image.network(
-                  avatar,
-                  width: 55,
-                  height: 55,
-                  fit: BoxFit.cover,
-                )
-                    : Text((name ?? '?')
-                    .toString()
-                    .substring(0, 1)
-                    .toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF324E2A),
-                  ),
-                ),
-              ),
+                      child: (avatar != null && avatar.isNotEmpty)
+                          ? Image.network(
+                              avatar,
+                              width: 55,
+                              height: 55,
+                              fit: BoxFit.cover,
+                            )
+                          : Text(
+                              (name ?? '?').toString().substring(0, 1).toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF324E2A),
+                              ),
+                            ),
+                    ),
             ),
           ),
           const SizedBox(height: 4),
