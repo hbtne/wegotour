@@ -20,7 +20,7 @@ class GeminiService {
 
     // Build a single textual prompt from history. You can refine formatting as needed.
     final sb = StringBuffer();
-    sb.writeln('Bạn là một trợ lý du lịch. Trả lời dựa trên ngữ cảnh sau:');
+    sb.writeln('Bạn tên là WEE và bạn là một trợ lý du lịch của ứng dụng Wego, bạn sẽ giúp hỗ trợ các câu hỏi về thông tin xung quanh địa điểm du lịch và các hướng dẫn cần thiết. Trả lời ngắn gọn, lịch sự và thân thiện dựa trên ngữ cảnh sau:');
     for (var msg in history) {
       final role = msg['role'] ?? 'user';
       final content = msg['content'] ?? '';
