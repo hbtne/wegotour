@@ -422,7 +422,8 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
                       final imageUrl = (msg['imageUrl'] ?? '') as String;
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
-                        child: isSelf ? _messageSelf(text, imageUrl) : _messageRow(name: msg['senderName'] ?? '', msg: text, imageUrl: imageUrl),
+                        child: isSelf ? _messageSelf(text, imageUrl) : _messageRow(name: msg['senderName'] ?? '',
+                                                                                         msg: text, imageUrl: imageUrl),
                       );
                     },
                   );
