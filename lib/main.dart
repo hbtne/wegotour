@@ -17,6 +17,7 @@ import 'package:stour/screens/dashboardBusiness_screen.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:stour/screens/dashboardAdmin_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:stour/screens/create_collection_event.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 FlutterLocalNotificationsPlugin();
@@ -111,6 +112,7 @@ class _MyAppState extends State<MyApp> {
         '/forgot': (context) => const ForgotPasswordScreen(),
         '/menuBusiness': (context) => const MenuBusiness(),
         '/menuAdmin': (context) => const MenuAdmin(),
+        '/create_collection_event': (context) => const CreateCollectionEvent(),
       },
     );
   }

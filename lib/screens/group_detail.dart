@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:intl/intl.dart';
 import 'package:stour/assets/icons/championship_cup.dart';
 import 'package:stour/assets/icons/chat_svg.dart';
 import 'package:stour/assets/icons/event_calendar.dart';
@@ -14,7 +13,7 @@ import 'event_infomation.dart';
 class GroupDetailScreen extends StatefulWidget {
   final String groupId;
   final String groupName;
-  const GroupDetailScreen({Key? key, required this.groupId, required this.groupName}) : super(key: key);
+  const GroupDetailScreen({super.key, required this.groupId, required this.groupName});
 
   @override
   State<GroupDetailScreen> createState() => _GroupDetailScreenState();
@@ -29,7 +28,9 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
 
   @override
   void dispose() {
-    for (final s in _subscriptions) s.cancel();
+    for (final s in _subscriptions) {
+      s.cancel();
+    }
     _subscriptions.clear();
     _eventsMap.clear();
     super.dispose();
@@ -48,7 +49,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     final snap = await docRef.get();
     if (!snap.exists) return;
 
-    final data = snap.data() as Map<String, dynamic>? ?? {};
+    final data = snap.data() ?? {};
     final joined = List<Map<String, dynamic>>.from(data['joined'] ?? []);
 
     final existingIndex = joined.indexWhere((j) => j['id'] == user.uid);
@@ -69,7 +70,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     final groupSnap = await groupRef.get();
     if (!groupSnap.exists) return;
 
-    final groupData = groupSnap.data() as Map<String, dynamic>? ?? {};
+    final groupData = groupSnap.data() ?? {};
     final events = List<Map<String, dynamic>>.from(groupData['events'] ?? []);
 
     bool updated = false;
@@ -251,7 +252,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                       ),
                     ],
                   );
-                }).toList(),
+                }),
               ],
             );
           }

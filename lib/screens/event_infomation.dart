@@ -242,9 +242,11 @@ class EventDetailScreen extends StatelessWidget {
     if (startDate == null ||
         startTime == null ||
         endDate == null ||
-        endTime == null) return '';
+        endTime == null) {
+      return '';
+    }
 
-    DateTime _parseDate(dynamic d) {
+    DateTime parseDate(dynamic d) {
       if (d == null) throw FormatException('null date');
       if (d is DateTime) return d;
       if (d is Timestamp) return d.toDate();
@@ -267,7 +269,7 @@ class EventDetailScreen extends StatelessWidget {
     }
 
     // parse time helper must be declared before combine() since combine() uses it
-    DateTime _parseTime(String t) {
+    DateTime parseTime(String t) {
       // t can be "09:00", "9:00 AM", "09:00 PM"
       if (_isTimeString(t)) {
         final hasAmPm = RegExp(r'([AaPp][Mm])').hasMatch(t);
@@ -300,28 +302,28 @@ class EventDetailScreen extends StatelessWidget {
       }
     }
 
-    DateTime _combine(dynamic datePart, String timePart) {
+    DateTime combine(dynamic datePart, String timePart) {
       // handle swapped inputs: if datePart is a time-string and timePart is a date-string -> swap
       if (datePart is String &&
           _isTimeString(datePart) &&
           timePart.isNotEmpty &&
           _isDateString(timePart)) {
-        final parsedDate = _parseDate(timePart);
-        final parsedTime = _parseTime(datePart);
+        final parsedDate = parseDate(timePart);
+        final parsedTime = parseTime(datePart);
         return DateTime(parsedDate.year, parsedDate.month, parsedDate.day,
             parsedTime.hour, parsedTime.minute);
       }
 
       // normal case: datePart is date-like
-      final parsedDate = _parseDate(datePart);
-      final parsedTime = _parseTime(timePart);
+      final parsedDate = parseDate(datePart);
+      final parsedTime = parseTime(timePart);
       return DateTime(parsedDate.year, parsedDate.month, parsedDate.day,
           parsedTime.hour, parsedTime.minute);
     }
 
     try {
-      final s = _combine(startDate, startTime!);
-      final e = _combine(endDate, endTime!);
+      final s = combine(startDate, startTime);
+      final e = combine(endDate, endTime);
       final startStr =
           '${DateFormat('HH:mm').format(s)} ${DateFormat('dd/MM/yyyy').format(s)}';
       final endStr =
@@ -337,9 +339,10 @@ class EventDetailScreen extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       if (kDebugMode) print('User not authenticated');
-      if (context.mounted)
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Bạn cần đăng nhập để tham gia sự kiện')));
+      }
       return;
     }
 
@@ -349,7 +352,7 @@ class EventDetailScreen extends StatelessWidget {
       final snap = await docRef.get();
       if (!snap.exists) return;
 
-      final data = snap.data() as Map<String, dynamic>? ?? {};
+      final data = snap.data() ?? {};
       final joined = List<Map<String, dynamic>>.from(data['joined'] ?? []);
 
       final existingIndex = joined.indexWhere((j) => j['id'] == user.uid);
@@ -371,7 +374,7 @@ class EventDetailScreen extends StatelessWidget {
       final groupSnap = await groupRef.get();
       if (!groupSnap.exists) return;
 
-      final groupData = groupSnap.data() as Map<String, dynamic>? ?? {};
+      final groupData = groupSnap.data() ?? {};
       final eventsRaw = groupData['events'] ?? [];
       final events = (eventsRaw is List)
           ? List<Map<String, dynamic>>.from(eventsRaw.map((e) =>
@@ -405,9 +408,10 @@ class EventDetailScreen extends StatelessWidget {
       }
     } catch (e) {
       if (kDebugMode) print('_toggleJoinEvent error: $e');
-      if (context.mounted)
+      if (context.mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('Thao tác thất bại')));
+      }
     }
   }
 
@@ -427,15 +431,16 @@ class EventDetailScreen extends StatelessWidget {
       final String etRaw = (event['endTime'] ?? '').toString();
 
       if (sd == null || stRaw.isEmpty || ed == null || etRaw.isEmpty) {
-        if (context.mounted)
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
               content:
                   Text('Thiếu thời gian sự kiện để thêm vào Google Calendar')));
+        }
         return;
       }
 
       // local helper parse Date
-      DateTime _parseDate(dynamic d) {
+      DateTime parseDate(dynamic d) {
         if (d == null) throw FormatException('null date');
         if (d is DateTime) return d;
         if (d is Timestamp) return d.toDate();
@@ -456,7 +461,7 @@ class EventDetailScreen extends StatelessWidget {
         throw FormatException('Unsupported date type: ${d.runtimeType}');
       }
 
-      DateTime _parseTime(String t) {
+      DateTime parseTime(String t) {
         if (_isTimeString(t)) {
           final hasAmPm = RegExp(r'([AaPp][Mm])').hasMatch(t);
           try {
@@ -494,14 +499,14 @@ class EventDetailScreen extends StatelessWidget {
             _isTimeString(datePart) &&
             timePart.isNotEmpty &&
             _isDateString(timePart)) {
-          final parsedDate = _parseDate(timePart);
-          final parsedTime = _parseTime(datePart);
+          final parsedDate = parseDate(timePart);
+          final parsedTime = parseTime(datePart);
           return DateTime(parsedDate.year, parsedDate.month, parsedDate.day,
               parsedTime.hour, parsedTime.minute);
         }
         // otherwise normal
-        final parsedDate = _parseDate(datePart);
-        final parsedTime = _parseTime(timePart);
+        final parsedDate = parseDate(datePart);
+        final parsedTime = parseTime(timePart);
         return DateTime(parsedDate.year, parsedDate.month, parsedDate.day,
             parsedTime.hour, parsedTime.minute);
       }
@@ -561,18 +566,20 @@ class EventDetailScreen extends StatelessWidget {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
         if (kDebugMode) print('Cannot launch $uri');
-        if (context.mounted)
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Không thể mở Google Calendar')));
+        }
       }
     } catch (e, st) {
       if (kDebugMode) {
         print('_addToGoogleCalendar error: $e');
         print(st);
       }
-      if (context.mounted)
+      if (context.mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('Thêm lịch thất bại')));
+      }
     }
   }
 

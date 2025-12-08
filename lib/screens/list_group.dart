@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:stour/assets/icons/find_group_svg.dart';
 import 'package:stour/screens/find_group.dart';
-import '../assets/icons/chat_svg.dart';
 import 'group_post.dart';
 
 class GroupListScreen extends StatelessWidget {

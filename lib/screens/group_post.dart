@@ -16,10 +16,10 @@ class GroupPostScreen extends StatefulWidget {
   final String groupName;
 
   const GroupPostScreen({
-    Key? key,
+    super.key,
     required this.groupId,
     required this.groupName,
-  }) : super(key: key);
+  });
 
   @override
   State<GroupPostScreen> createState() => _GroupPostScreenState();
