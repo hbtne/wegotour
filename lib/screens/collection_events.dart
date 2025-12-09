@@ -3,35 +3,225 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CollectionEventsList extends StatelessWidget {
   const CollectionEventsList({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sự kiện sưu tầm')),
+      appBar: AppBar(
+        title: const Text('Sự kiện sưu tầm'),
+        elevation: 0,
+      ),
       body: StreamBuilder<QuerySnapshot>(
-stream: FirebaseFirestore.instance
-    .collection('collect_events')
-    .where('category', isEqualTo: 'collection')
-    .snapshots(),
-        builder: (c, snap) {
-          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-          final docs = snap.data!.docs;
-          if (docs.isEmpty) return const Center(child: Text('Không có sự kiện'));
+        stream: FirebaseFirestore.instance
+            .collection('collect_events')
+            .where('category', isEqualTo: 'collection')
+            // ✅ BỎ orderBy để tránh lỗi index, sẽ sort trên client
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text('Lỗi: ${snapshot.error}'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Quay lại'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.event_busy, size: 64, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  Text('Chưa có sự kiện nào', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                ],
+              ),
+            );
+          }
+
+          // ✅ Sort trên client side (sau khi lấy data)
+          final docs = snapshot.data!.docs;
+          docs.sort((a, b) {
+            final aData = a.data() as Map<String, dynamic>;
+            final bData = b.data() as Map<String, dynamic>;
+            final aStart = (aData['startAt'] as Timestamp?)?.toDate();
+            final bStart = (bData['startAt'] as Timestamp?)?.toDate();
+            
+            if (aStart == null && bStart == null) return 0;
+            if (aStart == null) return 1;
+            if (bStart == null) return -1;
+            
+            return bStart.compareTo(aStart); // Mới nhất trước (descending)
+          });
+
           return ListView.builder(
+            padding: const EdgeInsets.all(12),
             itemCount: docs.length,
-            itemBuilder: (ctx, i) {
-              final d = docs[i];
-              final data = d.data() as Map<String, dynamic>;
+            itemBuilder: (context, index) {
+              final doc = docs[index];
+              final data = doc.data() as Map<String, dynamic>;
+              
+              // Parse dữ liệu
+              final title = data['title'] ?? 'Không có tiêu đề';
+              final description = data['description'] ?? '';
               final badge = data['badge'] as Map<String, dynamic>?;
-              final ended = (data['endAt'] as Timestamp?)?.toDate().isBefore(DateTime.now()) ?? false;
-              return ListTile(
-                leading: badge != null && (badge['icon'] ?? '').toString().isNotEmpty
-                    ? Image.network(badge['icon'], width: 48, height: 48, fit: BoxFit.cover)
-                    : const Icon(Icons.emoji_events),
-                title: Text(data['title'] ?? ''),
-                subtitle: Text(data['description'] ?? ''),
-                trailing: TextButton(
-                  child: Text(ended ? 'Đã kết thúc' : 'Mở'),
-                  onPressed: ended ? null : () => Navigator.pushNamed(context, '/event_collection', arguments: d.id),
+              final badgeIcon = badge?['icon'] ?? '';
+              
+              // Kiểm tra trạng thái
+              final startAt = (data['startAt'] as Timestamp?)?.toDate();
+              final endAt = (data['endAt'] as Timestamp?)?.toDate();
+              final now = DateTime.now();
+              
+              final hasStarted = startAt != null && now.isAfter(startAt);
+              final hasEnded = endAt != null && now.isAfter(endAt);
+              final isActive = hasStarted && !hasEnded;
+
+              // Màu sắc theo trạng thái
+              Color statusColor;
+              String statusText;
+              IconData statusIcon;
+              
+              if (hasEnded) {
+                statusColor = Colors.grey;
+                statusText = 'Đã kết thúc';
+                statusIcon = Icons.lock_clock;
+              } else if (isActive) {
+                statusColor = Colors.green;
+                statusText = 'Đang diễn ra';
+                statusIcon = Icons.play_circle_filled;
+              } else {
+                statusColor = Colors.orange;
+                statusText = 'Sắp diễn ra';
+                statusIcon = Icons.schedule;
+              }
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: hasEnded 
+                      ? null 
+                      : () => Navigator.pushNamed(
+                            context, 
+                            '/event_collection', 
+                            arguments: doc.id,
+                          ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Icon/Badge
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.grey[200],
+                          ),
+                          child: badgeIcon.isNotEmpty
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    badgeIcon,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Icon(Icons.emoji_events, size: 32),
+                                  ),
+                                )
+                              : const Icon(Icons.emoji_events, size: 32),
+                        ),
+                        const SizedBox(width: 12),
+
+                        // Nội dung
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              if (description.isNotEmpty)
+                                Text(
+                                  description,
+                                  style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              const SizedBox(height: 8),
+                              
+                              // Thời gian
+                              Row(
+                                children: [
+                                  Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${_formatDate(startAt)} - ${_formatDate(endAt)}',
+                                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Status badge
+                        Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: statusColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: statusColor, width: 1),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(statusIcon, size: 14, color: statusColor),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    statusText,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: statusColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (!hasEnded) ...[
+                              const SizedBox(height: 8),
+                              Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               );
             },
@@ -39,5 +229,10 @@ stream: FirebaseFirestore.instance
         },
       ),
     );
+  }
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return '?';
+    return '${date.day}/${date.month}/${date.year}';
   }
 }
