@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stour/screens/main_screen.dart';
 import 'package:stour/util/question.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:stour/util/const.dart';
-import 'package:stour/util/coupon.dart';
 
 class QuestionScreen extends StatefulWidget {
   final List<Question> listquestion;

@@ -1,4 +1,4 @@
-import 'dart:ffi';
+// import 'dart:ffi';
 
 import 'package:flutter/material.dart';
 import '../util/places.dart';
@@ -8,7 +8,7 @@ const primary = Color(0xFF2E582B);
 class RankingScreen extends StatefulWidget {
   final List<Place> source;
 
-  const RankingScreen({Key? key, required this.source}) : super(key: key);
+  const RankingScreen({super.key, required this.source});
 
   @override
   State<RankingScreen> createState() => _RankingScreenState();

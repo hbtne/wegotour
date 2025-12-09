@@ -372,7 +372,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   Expanded(
                     child: Center(
                       child: Text(
-                        "${widget.groupName.toUpperCase()}",
+                        widget.groupName.toUpperCase(),
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 20,

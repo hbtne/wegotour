@@ -24,7 +24,7 @@ class PostItem extends StatelessWidget {
   final String author;
   final String avatar;
 
-  PostItem({
+  const PostItem({
     super.key,
     required this.postId,
     required this.groupId,
@@ -118,7 +118,7 @@ class PostItem extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      if (groupId != null && groupId.isNotEmpty)
+                      if (groupId.isNotEmpty)
                         GestureDetector(
                           onTap: () {
                             Navigator.push(

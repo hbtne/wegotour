@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:stour/screens/place_aproval_screen.dart';
 import 'package:stour/screens/trending.dart';
 import 'package:stour/util/const.dart';
@@ -14,9 +13,8 @@ import 'package:geocoding/geocoding.dart';
 import 'package:stour/widgets/search_card.dart';
 import 'package:stour/screens/home_app_bar.dart';
 import 'package:flutter/services.dart';
-import 'package:stour/screens/coupon_business.dart';
 import 'package:stour/screens/addPlace_screen.dart';
-
+import 'package:stour/screens/create_collection_event.dart'; 
 import 'manage_account_screen.dart';
 import 'manage_place_screen.dart';
 
@@ -389,6 +387,17 @@ class _MenuAdminState extends State<MenuAdmin> {
                 ),
 
                 const SizedBox(height: 20),
+                Center(
+                  child: ElevatedButton.icon(
+                  icon: const Icon(Icons.add_circle_outline),
+                  label: const Text('Tạo event sưu tầm'),
+                    onPressed: () => Navigator.pushNamed(context, '/create_collection_event'),
+                style: ElevatedButton.styleFrom(
+              backgroundColor: Color.fromARGB(255, 120, 180, 120),
+    ),
+  ),
+),
+const SizedBox(height: 20),
                 Center(
                   child: ElevatedButton.icon(
                     onPressed: () => _logout(context),

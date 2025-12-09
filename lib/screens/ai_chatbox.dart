@@ -157,8 +157,12 @@ class _AIChatScreenState extends State<AIChatScreen> {
     if (la == 0) return lb;
     if (lb == 0) return la;
     final dp = List.generate(la + 1, (_) => List<int>.filled(lb + 1, 0));
-    for (var i = 0; i <= la; i++) dp[i][0] = i;
-    for (var j = 0; j <= lb; j++) dp[0][j] = j;
+    for (var i = 0; i <= la; i++) {
+      dp[i][0] = i;
+    }
+    for (var j = 0; j <= lb; j++) {
+      dp[0][j] = j;
+    }
     for (var i = 1; i <= la; i++) {
       for (var j = 1; j <= lb; j++) {
         final cost = a.codeUnitAt(i - 1) == b.codeUnitAt(j - 1) ? 0 : 1;
@@ -378,10 +382,10 @@ class _AIChatScreenState extends State<AIChatScreen> {
     final labels = (annotations['labelAnnotations'] as List<dynamic>?)?.map((l) => '${l['description']} (${(l['score'] ?? 0).toStringAsFixed(2)})').take(5).toList();
     if (labels != null && labels.isNotEmpty) {
       parts.add('Labels: ${labels.join(', ')}');
-      labels.forEach((l) {
+      for (var l in labels) {
         final plain = l.toString().split(' (').first;
         if (plain.isNotEmpty) candidates.add(plain);
-      });
+      }
     }
 
     final logos = (annotations['logoAnnotations'] as List<dynamic>?)?.map((l) => l['description']).whereType<String>().toList();
