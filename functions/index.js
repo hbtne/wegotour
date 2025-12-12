@@ -3,6 +3,7 @@ const logger = require("firebase-functions/logger");
 admin.initializeApp();
 
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 
 const db = admin.firestore();
 
@@ -175,3 +176,41 @@ exports.onEventCreated = onDocumentCreated("events/{eventId}", async (event) => 
 
   return Promise.all(promises);
 });
+
+exports.checkAnniversary = onSchedule("every 5 minutes", async (event) => {
+  const today = new Date();
+  const month = today.getMonth();
+  const date = today.getDate();
+
+  const postsSnap = await db.collection("posts").get();
+
+  const promises = [];
+
+  postsSnap.forEach((doc) => {
+    const post = doc.data();
+
+    const createdAt = post.createdAt?.toDate();
+    if (!createdAt) return;
+
+    if (createdAt.getMonth() === month && createdAt.getDate() === date) {
+
+      const userId = post.authorId;
+      if (!userId) return;
+
+      promises.push(
+        sendNotification(
+          userId,
+          "Kỷ niệm hôm nay",
+          `Một bài viết của bạn từ năm trước đang xuất hiện lại.`,
+          {
+            type: "anniversary",
+            postId: doc.id
+          }
+        )
+      );
+    }
+  });
+
+  return Promise.all(promises);
+});
+
