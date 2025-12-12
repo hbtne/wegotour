@@ -8,7 +8,7 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const db = admin.firestore();
 
 // ==========================================
-// SEND NOTIFICATION
+// SEND NOTIFICATION (ADMIN SDK v13 SAFE VERSION)
 // ==========================================
 async function sendNotification(userId, title, body, data = {}) {
   logger.info("sendNotification called", { userId, data });
@@ -18,7 +18,7 @@ async function sendNotification(userId, title, body, data = {}) {
     return null;
   }
 
-  // Save notification to Firestore
+  // Save notification to Firestore (in-app notification)
   try {
     await db
       .collection("users")
@@ -50,14 +50,26 @@ async function sendNotification(userId, title, body, data = {}) {
     return null;
   }
 
-  const payload = {
-    notification: { title, body },
-    data,
+  // Payload format using admin.messaging().send (v13)
+  const message = {
+    token,
+    notification: {
+      title,
+      body,
+    },
+    data: {
+      ...data,
+    },
   };
 
-  logger.info("Sending FCM message to:", userId);
-
-  return admin.messaging().sendToDevice(token, payload);
+  try {
+    const res = await admin.messaging().send(message);
+    logger.info("FCM sent to", userId, res);
+    return res;
+  } catch (err) {
+    logger.error("FCM send error:", err);
+    return null;
+  }
 }
 
 // ==========================================
@@ -126,11 +138,8 @@ exports.onEventCreated = onDocumentCreated("events/{eventId}", async (event) => 
   }
 
   const createdByUserId = data.createdBy?.id;
-  if (!createdByUserId) {
-    logger.error("createdBy.id missing in event");
-  }
-
   const groupId = data.groupId;
+
   if (!groupId) {
     logger.error("Event missing groupId");
     return null;
@@ -142,24 +151,11 @@ exports.onEventCreated = onDocumentCreated("events/{eventId}", async (event) => 
     return null;
   }
 
-  const groupData = groupSnap.data();
-  const members = groupData.members || [];
-
-  if (!Array.isArray(members)) {
-    logger.error("Members is not an array", members);
-    return null;
-  }
-
-  logger.info("Members list:", members);
+  const members = groupSnap.data().members || [];
 
   const promises = members.map((member) => {
-    const uid = member.id;  // HOẶC member.userId? Cần kiểm tra trong Firestore
-
-    if (!uid) {
-      logger.error("Member has no id field:", member);
-      return null;
-    }
-
+    const uid = member.id;
+    if (!uid) return null;
     if (uid === createdByUserId) return null;
 
     return sendNotification(
@@ -177,7 +173,12 @@ exports.onEventCreated = onDocumentCreated("events/{eventId}", async (event) => 
   return Promise.all(promises);
 });
 
-exports.checkAnniversary = onSchedule("every 5 minutes", async (event) => {
+// ==========================================
+// SCHEDULED ANNIVERSARY CHECKER
+// ==========================================
+exports.checkAnniversary = onSchedule("every 24 hours", async () => {
+  logger.info("checkAnniversary triggered");
+
   const today = new Date();
   const month = today.getMonth();
   const date = today.getDate();
@@ -188,29 +189,26 @@ exports.checkAnniversary = onSchedule("every 5 minutes", async (event) => {
 
   postsSnap.forEach((doc) => {
     const post = doc.data();
-
     const createdAt = post.createdAt?.toDate();
+
     if (!createdAt) return;
+    if (createdAt.getMonth() !== month || createdAt.getDate() !== date) return;
 
-    if (createdAt.getMonth() === month && createdAt.getDate() === date) {
+    const userId = post.authorId;
+    if (!userId) return;
 
-      const userId = post.authorId;
-      if (!userId) return;
-
-      promises.push(
-        sendNotification(
-          userId,
-          "Kỷ niệm hôm nay",
-          `Một bài viết của bạn từ năm trước đang xuất hiện lại.`,
-          {
-            type: "anniversary",
-            postId: doc.id
-          }
-        )
-      );
-    }
+    promises.push(
+      sendNotification(
+        userId,
+        "Kỷ niệm hôm nay",
+        `Một bài viết của bạn từ năm trước đang xuất hiện lại.`,
+        {
+          type: "anniversary",
+          postId: doc.id,
+        }
+      )
+    );
   });
 
   return Promise.all(promises);
 });
-
