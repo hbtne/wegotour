@@ -1,7 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stour/screens/main_screen.dart';
+import 'package:stour/services/auth_service.dart';
 import 'package:stour/util/const.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'screens/splash_screen.dart';
@@ -21,23 +23,38 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 FlutterLocalNotificationsPlugin();
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+// ✅ BACKGROUND NOTIFICATION HANDLER
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
 }
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
+
+  // ✅ INIT FIREBASE
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
-);
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  );
+
+  // ✅ XIN QUYỀN THÔNG BÁO (BẮT BUỘC)
+  await FirebaseMessaging.instance.requestPermission();
+
+  // ✅ BACKGROUND HANDLER
+  FirebaseMessaging.onBackgroundMessage(
+      _firebaseMessagingBackgroundHandler);
+
+  // ✅ LOCAL NOTIFICATION INIT
   const AndroidInitializationSettings initializationSettingsAndroid =
   AndroidInitializationSettings('@mipmap/ic_launcher');
 
   const DarwinInitializationSettings iosSettings =
   DarwinInitializationSettings();
 
-  const WindowsInitializationSettings windowsSettings = WindowsInitializationSettings(
+  const WindowsInitializationSettings windowsSettings =
+  WindowsInitializationSettings(
     appName: 'WeGoTour',
     appUserModelId: 'com.wegotour.app',
     guid: 'b3ea77c3-e332-4bc6-9e61-59c91d63e85d',
@@ -51,9 +68,28 @@ void main() async {
 
   await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
+  // ✅ LẮNG NGHE THÔNG BÁO KHI APP ĐANG MỞ (FOREGROUND)
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    if (message.notification != null) {
+      flutterLocalNotificationsPlugin.show(
+        message.hashCode,
+        message.notification!.title,
+        message.notification!.body,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'default_channel',
+            'Notifications',
+            importance: Importance.max,
+            priority: Priority.high,
+          ),
+        ),
+      );
+    }
+  });
+
   getAllPlaceFoodStream('stourplace1');
   getAllPlaceFoodStream('food');
-  // const GoogleMapsController();
+
   runApp(const MyApp());
 }
 
@@ -70,6 +106,30 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     checkLoginStatus();
+    refreshFCMToken(); // ✅ TỰ ĐỘNG REFRESH TOKEN
+  }
+
+  // ✅ REFRESH & LƯU FCM TOKEN KHI MỞ APP
+  Future<void> refreshFCMToken() async {
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token == null) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final uid = prefs.getString('uid');
+      if (uid == null) return;
+
+      await FirebaseFirestore.instance
+          .collection("users")
+          .doc(uid)
+          .update({
+        "fcmToken": token,
+      });
+
+      print("✅ Refreshed FCM Token: $token");
+    } catch (e) {
+      print("❌ Lỗi lấy FCM Token: $e");
+    }
   }
 
   void checkLoginStatus() async {
@@ -87,7 +147,7 @@ class _MyAppState extends State<MyApp> {
       }
     } else {
       setState(() {
-        _isLoggedIn = false; // Show SplashScreen
+        _isLoggedIn = false;
       });
     }
   }
@@ -97,7 +157,9 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: Constants.appName,
-      home: _isLoggedIn ? const SizedBox() : const SplashScreen(), // dùng SizedBox rỗng để chờ checkLoginStatus
+      navigatorKey: navigatorKey,
+      home:
+      _isLoggedIn ? const SizedBox() : const SplashScreen(),
       theme: ThemeData(
         fontFamily: 'Montserrat',
       ),
@@ -106,7 +168,8 @@ class _MyAppState extends State<MyApp> {
         '/signin': (context) => const SignInScreen(),
         '/signup': (context) => const SignUpScreen(),
         '/role': (context) => const RoleSelectionScreen(),
-        '/profile': (context) => const Profile(),
+        '/profile': (context) =>
+            Profile(profileId: AuthService.getCurrentUserId()!),
         '/coupon': (context) => const CouponScreen(),
         '/forgot': (context) => const ForgotPasswordScreen(),
         '/menuBusiness': (context) => const MenuBusiness(),

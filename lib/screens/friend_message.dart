@@ -4,8 +4,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:stour/assets/icons/call_video_svg.dart';
+import 'package:stour/screens/call_screen.dart';
+import 'package:stour/services/auth_service.dart';
 import 'package:stour/services/cloudinary_service.dart';
 
 class PersonalChatScreen extends StatefulWidget {
@@ -360,6 +364,33 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     super.dispose();
   }
 
+  void _onCall(bool audioOnly) async {
+    final callDoc = FirebaseFirestore.instance.collection('calls').doc();
+    final callId = callDoc.id;
+
+    await callDoc.set({
+      "callerId": AuthService.getCurrentUserId(),
+      "callerName": AuthService.getCurrentUserName(),
+      "calleeId": widget.friendId,
+      "calleeName": widget.friendName,
+      "status": "ringing",
+      "createdAt": FieldValue.serverTimestamp(),
+      "offer": null,
+      "answer": null,
+    });
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CallScreen(
+          callId: callId,
+          audioOnly: audioOnly,
+          isCaller: true,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     const Color primary = Color(0xFF4A5C3B);
@@ -395,6 +426,13 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
                   ),
                   const Spacer(),
                   const SizedBox(width: 40),
+                  IconButton(
+                    onPressed: () => _onCall(true),
+                    icon: Icon(Icons.call, color: primary,)),
+                  SizedBox(width: 5,),
+                  IconButton(
+                    onPressed: () => _onCall(false),
+                    icon: SvgPicture.string(callVideoSVG))
                 ],
               ),
             ),

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,7 +26,8 @@ class _SignInScreenState extends State<SignInScreen> {
     });
 
     try {
-      final UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+      final UserCredential userCredential =
+      await _auth.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
@@ -38,10 +40,15 @@ class _SignInScreenState extends State<SignInScreen> {
       if (userDoc.exists) {
         final role = userDoc.data()?['role'];
         final prefs = await SharedPreferences.getInstance();
+
         await prefs.setBool('isLoggedIn', true);
         await prefs.setString('uid', userCredential.user!.uid);
         await prefs.setString('role', role ?? '');
-        // Navigate based on the role
+
+        // ✅✅✅ LƯU FCM TOKEN TẠI ĐÂY
+        await saveFCMToken();
+
+        // ✅ Điều hướng theo role
         if (role == 'business') {
           Navigator.pushReplacementNamed(context, '/menuBusiness');
         } else if (role == 'traveler') {
@@ -208,5 +215,22 @@ class _SignInScreenState extends State<SignInScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> saveFCMToken() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final token = await FirebaseMessaging.instance.getToken();
+    if (token == null) return;
+
+    await FirebaseFirestore.instance
+        .collection("users")
+        .doc(user.uid)
+        .update({
+      "fcmToken": token,
+    });
+
+    print("✅ FCM Token saved: $token");
   }
 }

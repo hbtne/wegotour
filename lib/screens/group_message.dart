@@ -5,9 +5,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:stour/screens/call_screen.dart';
+import 'package:stour/screens/group_call_screen.dart';
 import 'package:stour/services/cloudinary_service.dart';
+
+import '../assets/icons/call_video_svg.dart';
 
 class GroupChatScreen extends StatefulWidget {
   final String groupId;
@@ -384,6 +389,18 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     ),
                   ),
                   const SizedBox(width: 48),
+                  IconButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context)=> GroupCallScreen(roomId: '',))),
+                    icon: Icon(Icons.phone, color: primary),
+                  ),
+                  SizedBox(width: 10,),
+                  IconButton(
+                      onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => GroupCallScreen(roomId: ''))),
+                      icon: SvgPicture.string(callVideoSVG))
                 ],
               ),
             ),

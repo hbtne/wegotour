@@ -1,70 +1,180 @@
-import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/cupertino.dart';
-
-// 🔹 Firebase config, dùng firebase_options.dart nếu Flutter project
+import 'package:flutter/widgets.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
-  // Khởi tạo Firebase
-  WidgetsFlutterBinding.ensureInitialized(); // 🔹 Thêm dòng này
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   print("✅ Firebase initialized");
 
-  // Chạy migration
   await migrateStourPlace();
 }
 
 Future<void> migrateStourPlace() async {
   await migration("stourplace1");
   await migration("food");
-
   print("\n🎉 Hoàn tất migration!");
 }
 
+/// 🔹 Migration chính
 Future<void> migration(String collectionName) async {
   final db = FirebaseFirestore.instance;
+  final now = DateTime.now();
 
-  final snapshot = await db.collection(collectionName).get();
+  // --- 1️⃣ Reset tất cả dữ liệu về 0 ---
+  final allDocs = await db.collection(collectionName).get();
+  final resetBatch = db.batch();
+  for (final doc in allDocs.docs) {
+    resetBatch.update(doc.reference, {
+      'checkinCount': 0,
+      'reviewCount': 0,
+      'checkinCountMonth': 0,
+      'reviewCountMonth': 0,
+      'checkinCountYear': 0,
+      'reviewCountYear': 0,
+    });
+  }
+  await resetBatch.commit();
+  print("🧹 Đã reset dữ liệu $collectionName (${allDocs.docs.length} doc)");
 
-  if (snapshot.docs.isEmpty) {
-    print("⚠️ Không có document nào trong collection: $collectionName");
-    return;
+  // --- 2️⃣ Gom dữ liệu checkin từ posts ---
+  final postsSnapshot = await db.collection('posts').get();
+  final posts = postsSnapshot.docs;
+  if (posts.isEmpty) {
+    print("⚠️ Không có bài post nào");
   }
 
-  print("🔹 Tìm thấy ${snapshot.docs.length} document, bắt đầu cập nhật...");
+  final Map<String, Map<String, int>> stats = {}; // id -> thống kê
 
-  final batch = db.batch();
-  final random = Random();
+  for (final post in posts) {
+    final data = post.data();
+    final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+    final places = data['places'];
 
-  for (var doc in snapshot.docs) {
-    final randomCheckin = random.nextInt(41) + 10; // 10–50
-    final randomReview = random.nextInt(41) + 10; // 10–50
-    final rating = double.parse((4 + random.nextDouble()).toStringAsFixed(1)); // 10–50
-    final ratingYear = double.parse((3 + random.nextDouble() * 2).toStringAsFixed(1)); // 10–50
+    if (places == null || createdAt == null) continue;
 
-    final random1 = random.nextInt(11) + 10;
-    final random2 = random.nextInt(11) + 10;
-    final random3 = random.nextInt(21) + 10;
-    final random4 = random.nextInt(21) + 10;
+    final placeIds = (places is List)
+        ? places.whereType<String>().toList()
+        : (places is String ? [places] : []);
 
-    batch.update(doc.reference, {
-      'checkinCount': randomCheckin,
-      'reviewCount': randomReview+ random1,
-      'checkinCountMonth': randomCheckin + random2,
-      'reviewCountMonth': randomReview,
-      'ratingMonth': rating.toString(),
-      'checkinCountYear': randomCheckin + random3,
-      'reviewCountYear': randomReview + random4,
-      'ratingYear': ratingYear.toString()
+    for (final placeId in placeIds) {
+      if (placeId.trim().isEmpty) continue; // ✅ bỏ qua id rỗng
+
+      stats.putIfAbsent(placeId, () => {
+        'checkinCount': 0,
+        'checkinCountMonth': 0,
+        'checkinCountYear': 0,
+        'reviewCount': 0,
+        'reviewCountMonth': 0,
+        'reviewCountYear': 0,
+      });
+
+      // Cộng checkin
+      if (createdAt.year == now.year &&
+          createdAt.month == now.month &&
+          createdAt.day == now.day) {
+        stats[placeId]!['checkinCount'] =
+            (stats[placeId]!['checkinCount'] ?? 0) + 1;
+      }
+
+      if (createdAt.year == now.year && createdAt.month == now.month) {
+        stats[placeId]!['checkinCountMonth'] =
+            (stats[placeId]!['checkinCountMonth'] ?? 0) + 1;
+      }
+
+      if (createdAt.year == now.year) {
+        stats[placeId]!['checkinCountYear'] =
+            (stats[placeId]!['checkinCountYear'] ?? 0) + 1;
+      }
+    }
+  }
+
+  // --- 3️⃣ Gom dữ liệu review từ "reviews" ---
+  final reviewsSnapshot = await db.collection('reviews').get();
+  final reviews = reviewsSnapshot.docs;
+  print("📝 Tìm thấy ${reviews.length} review");
+
+  for (final review in reviews) {
+    final data = review.data();
+    final idLocation = data['idLocation'] as String?;
+    final createdAt = _parseCreatedAt(data['createdAt']);
+
+    if (idLocation == null || idLocation.trim().isEmpty || createdAt == null)
+      continue;
+
+    stats.putIfAbsent(idLocation, () => {
+      'checkinCount': stats[idLocation]?['checkinCount'] ?? 0,
+      'checkinCountMonth': stats[idLocation]?['checkinCount'] ?? 0,
+      'checkinCountYear': stats[idLocation]?['checkinCount'] ?? 0,
+      'reviewCount': 0,
+      'reviewCountMonth': 0,
+      'reviewCountYear': 0,
     });
 
-    print("✅ ${doc.id}: checkin=$randomCheckin, review=$randomReview");
+    // Cộng review
+    if (createdAt.year == now.year &&
+        createdAt.month == now.month &&
+        createdAt.day == now.day) {
+      stats[idLocation]!['reviewCount'] =
+          (stats[idLocation]!['reviewCount'] ?? 0) + 1;
+    }
+
+    if (createdAt.year == now.year && createdAt.month == now.month) {
+      stats[idLocation]!['reviewCountMonth'] =
+          (stats[idLocation]!['reviewCountMonth'] ?? 0) + 1;
+    }
+
+    if (createdAt.year == now.year) {
+      stats[idLocation]!['reviewCountYear'] =
+          (stats[idLocation]!['reviewCountYear'] ?? 0) + 1;
+    }
+  }
+
+  // --- 4️⃣ Cập nhật Firestore ---
+  int updatedCount = 0;
+  WriteBatch batch = db.batch();
+
+  for (final entry in stats.entries) {
+    final placeId = entry.key;
+    if (placeId.trim().isEmpty) {
+      print("⚠️ Bỏ qua placeId rỗng");
+      continue;
+    }
+
+    final placeRef = db.collection(collectionName).doc(placeId);
+    final doc = await placeRef.get();
+    if (!doc.exists) {
+      print("⚠️ Bỏ qua $placeId (không có trong $collectionName)");
+      continue;
+    }
+
+    batch.update(placeRef, entry.value);
+    updatedCount++;
+
+    // Commit trung gian
+    if (updatedCount % 400 == 0) {
+      await batch.commit();
+      print("💾 Đã commit batch trung gian ($updatedCount)");
+      batch = db.batch();
+    }
   }
 
   await batch.commit();
+  print("✅ Đã cập nhật $updatedCount địa điểm cho $collectionName");
+}
+
+DateTime? _parseCreatedAt(dynamic createdAt) {
+  if (createdAt == null) return null;
+
+  if (createdAt is Timestamp) {
+    return createdAt.toDate();
+  } else if (createdAt is String && createdAt.isNotEmpty) {
+    try {
+      return DateTime.parse(createdAt);
+    } catch (_) {
+      return null;
+    }
+  }
+  return null;
 }

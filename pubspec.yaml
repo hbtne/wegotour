@@ -46,7 +46,8 @@ dependencies:
   flutter_dotenv: ^6.0.0
   speech_to_text: ^7.3.0
   flutter_markdown: ^0.7.7
-
+  flutter_ringtone_player: ^4.0.0
+  flutter_webrtc: ^0.12.1
 
 dev_dependencies:
   flutter_test:

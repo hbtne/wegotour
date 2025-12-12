@@ -9,6 +9,7 @@ import 'package:stour/assets/icons/chat_svg.dart';
 import 'package:stour/assets/icons/event_calendar.dart';
 import 'package:stour/screens/friend_message.dart';
 import 'package:stour/screens/group_message.dart';
+import 'package:stour/screens/profile.dart';
 import 'event_infomation.dart';
 
 class GroupDetailScreen extends StatefulWidget {
@@ -273,7 +274,10 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                             icon: SvgPicture.string(chatSVG, width: 20, height: 20)),
                         const SizedBox(width: 8),
                         IconButton(
-                            onPressed: () {}, icon: Icon(isCurrent ? Icons.person : Icons.person_add, color: const Color(0xFF9DB596))),
+                            onPressed: () => Navigator.push(
+                                context,
+                            MaterialPageRoute(builder: (_) => Profile(profileId: m['id']))),
+                            icon: Icon(isCurrent ? Icons.person : Icons.person_add, color: const Color(0xFF9DB596))),
                       ],
                     )
                   ],

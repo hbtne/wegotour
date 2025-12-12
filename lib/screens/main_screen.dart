@@ -5,11 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:stour/assets/icons/account_svg.dart';
+import 'package:stour/assets/icons/notification_svg.dart';
+import 'package:stour/screens/notification_screen.dart';
 import 'package:stour/screens/profile.dart';
 import '../assets/icons/group_bottom_bar.dart';
 import '../assets/icons/home_svg.dart';
 import '../assets/icons/timeline_svg.dart';
 import '../main.dart';
+import '../services/auth_service.dart';
 import '../util/const.dart';
 import '../widgets/timeline.dart';
 import 'feed.dart';
@@ -26,7 +29,8 @@ List<Widget> pages = [
   const Timeline(),
   const Feeds(),
   const Home(),
-  const Profile(),
+  const NotificationScreen(),
+  Profile(profileId: AuthService.getCurrentUserId()!),
 ];
 
 class MainScreen extends StatefulWidget {
@@ -56,7 +60,7 @@ class _MainScreenState extends State<MainScreen> {
             child: PageView(
               physics: const NeverScrollableScrollPhysics(),
               controller: _pageController,
-              children: List.generate(4, (index) => pages[index]),
+              children: List.generate(5, (index) => pages[index]),
             ),
           ),
         ],
@@ -103,6 +107,16 @@ class _MainScreenState extends State<MainScreen> {
       }
     }
   }
+  Stream<bool> hasUnreadStream(String userId) {
+    return FirebaseFirestore.instance
+        .collection("users")
+        .doc(userId)
+        .collection("notifications")
+        .where("read", isEqualTo: false)
+        .limit(1)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.isNotEmpty);
+  }
 
   @override
   void initState() {
@@ -129,28 +143,72 @@ class HomeBottomBar extends StatelessWidget {
       buttonBackgroundColor: Constants.navBG,
       index: 2,
       items: [
-      SvgPicture.string(
-      timelineSVG,
-      height: 30,
-      width: 30,
-    ),
-      SvgPicture.string(
-        groupSVG,
-        height: 30,
-        width: 30,
-      ),
-      SvgPicture.string(
-      homeSVG,
-      height: 30,
-      width: 30,
-    ),
-      SvgPicture.string(
-      accountSVG,
-      height: 30,
-      width: 30,
-    )
+        SvgPicture.string(
+          timelineSVG,
+          height: 30,
+          width: 30,
+        ),
+        SvgPicture.string(
+          groupSVG,
+          height: 30,
+          width: 30,
+        ),
+        SvgPicture.string(
+          homeSVG,
+          height: 30,
+          width: 30,
+        ),
+        NotificationIcon(
+            uid: AuthService.getCurrentUserId()!
+        ),
+        SvgPicture.string(
+          accountSVG,
+          height: 30,
+          width: 30,
+        )
       ],
       onTap: onTap,
+    );
+  }
+}
+
+class NotificationIcon extends StatelessWidget {
+  final String uid;
+  const NotificationIcon({super.key, required this.uid});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder(
+      stream: FirebaseFirestore.instance
+          .collection('notifications')
+          .where('userId', isEqualTo: uid)
+          .where('isRead', isEqualTo: false)
+          .snapshots(),
+      builder: (context, snapshot) {
+        bool hasUnread = false;
+
+        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+          hasUnread = true;
+        }
+
+        return Stack(
+          children: [
+            SvgPicture.string(notificationSVG, height: 30, width: 30,),
+            if (hasUnread)
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.red,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

@@ -83,8 +83,12 @@ class _CommentScreenState extends State<CommentScreen> {
       appBar: AppBar(
         title: const Text(
           'BÌNH LUẬN',
-          style: TextStyle(color: Color.fromARGB(255, 35, 52, 10)),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF3B6332),
+          ),
         ),
+        centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color.fromARGB(255, 35, 52, 10)),
           onPressed: () => Navigator.pop(context),

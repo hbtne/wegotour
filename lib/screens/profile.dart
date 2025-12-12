@@ -3,18 +3,21 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_neumorphic_plus/flutter_neumorphic.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:stour/assets/icons/person_check_svg.dart';
 
 import 'package:stour/screens/profile_post.dart';
 import 'package:stour/screens/saved_tour.dart';
 import 'package:stour/assets/icons/bio_svg.dart' as BioIcon;
 import 'package:stour/assets/icons/locate_svg.dart' as LocateIcon;
+import 'package:stour/services/auth_service.dart';
 import 'package:stour/widgets/profile_img.dart';
 import 'package:stour/screens/addPost_screen.dart';
 
 import '../util/places.dart';
 
 class Profile extends StatefulWidget {
-  const Profile({super.key});
+  final String profileId;
+  const Profile({super.key, required this.profileId});
 
   @override
   _ProfileState createState() => _ProfileState();
@@ -32,7 +35,9 @@ class _ProfileState extends State<Profile> {
     Icons.person_outline,
   ];
 
-  final List<Widget> _pages = [const PostScreen()];
+  late String profileId;
+  List<Widget> get _pages => [PostScreen(profileId: widget.profileId)];
+
   Future<void> _logout(BuildContext context) async {
     try {
       await FirebaseAuth.instance.signOut();
@@ -51,16 +56,11 @@ class _ProfileState extends State<Profile> {
 
   Future<void> _fetchProfile() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        final data = await getProfileData(user.uid);
-        setState(() {
-          _profileData = data;
-          _isLoading = false;
-
-
-        });
-      }
+      final data = await getProfileData(widget.profileId);
+      setState(() {
+        _profileData = data;
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -91,10 +91,10 @@ class _ProfileState extends State<Profile> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              ProfileImage(size: size, docId: FirebaseAuth.instance.currentUser?.uid ?? ""),
+              ProfileImage(size: size, docId: widget.profileId),
               profileInfo(),
               profileActivity(),
-              if (!_isLoading && _profileData != null)
+              if (!_isLoading && _profileData != null && widget.profileId == AuthService.getCurrentUserId())
                 profileEvents(size),
               SizedBox(
                 height: 5530, // Constrain the height of the PostScreen
@@ -201,6 +201,50 @@ class _ProfileState extends State<Profile> {
     );
   }
 
+  Future<void> _toggleFriend() async {
+    final currentUserId = AuthService.getCurrentUserId();
+    final targetId = widget.profileId;
+
+    if (currentUserId == null || targetId == null) return;
+
+    final firestore = FirebaseFirestore.instance;
+
+    final currentUserRef = firestore.collection('users').doc(currentUserId);
+    final targetUserRef = firestore.collection('users').doc(targetId);
+
+    // Lấy dữ liệu
+    final currentSnap = await currentUserRef.get();
+    final targetSnap = await targetUserRef.get();
+
+    if (!currentSnap.exists || !targetSnap.exists) return;
+
+    List currentFriends = List<String>.from(currentSnap['friends'] ?? []);
+    List targetFriends = List<String>.from(targetSnap['friends'] ?? []);
+
+    bool isFriend = currentFriends.contains(targetId);
+
+    if (isFriend) {
+      // ❌ REMOVE cả 2 chiều
+      currentFriends.remove(targetId);
+      targetFriends.remove(currentUserId);
+    } else {
+      // ✅ ADD cả 2 chiều
+      currentFriends.add(targetId);
+      // targetFriends.add(currentUserId);
+    }
+
+    // Update Firestore song song
+    await Future.wait([
+      currentUserRef.update({"friends": currentFriends}),
+      targetUserRef.update({"friends": targetFriends}),
+    ]);
+
+    // Cập nhật UI
+    setState(() {
+      _profileData!['friends'] = currentFriends;
+    });
+  }
+
   Widget profileInfo() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -211,14 +255,33 @@ class _ProfileState extends State<Profile> {
     }
     return Column(
       children: [
-         Text(
-          _profileData!['username'] ?? "Unknown",
-          style: TextStyle(
-            color: Color.fromARGB(255, 35, 52, 10),
-            fontWeight: FontWeight.bold,
-            fontSize: 24,
-          ),
-        ),
+         Row(
+           mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                _profileData!['username'] ?? "Unknown",
+                style: TextStyle(
+                  color: Color.fromARGB(255, 35, 52, 10),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 24,
+                ),
+              ),
+              if (AuthService.getCurrentUserId() != widget.profileId) ...[
+                const SizedBox(width: 8),
+
+                IconButton(
+                  icon:
+                    _profileData!['friends'].contains(widget.profileId)
+                    ? Icon(
+                        Icons.person_add,
+                        color: Colors.black87,
+                      )
+                    : SvgPicture.string(personCheckSVG),
+                  onPressed: _toggleFriend,
+                ),
+              ],
+            ]
+         ),
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -274,6 +337,7 @@ Future<Map<String, dynamic>> getProfileData(String docId) async {
       'saveTours': userDoc.data()?['saveTours'] ?? [],
       'username': username,
       'location': currentLocationDetail[1],
+      'friends': userDoc.data()?['friends'] ?? [],
     };
   } catch (e) {
     throw Exception('Error fetching profile data: $e');

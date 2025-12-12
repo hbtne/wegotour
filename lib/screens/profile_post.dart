@@ -9,7 +9,8 @@ import 'addPost_screen.dart';
 import 'comment_screen.dart';
 
 class PostScreen extends StatefulWidget {
-  const PostScreen({super.key});
+  final String profileId;
+  const PostScreen({super.key, required this.profileId});
 
   @override
   State<PostScreen> createState() => _PostScreenState();
@@ -43,7 +44,7 @@ class _PostScreenState extends State<PostScreen> {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection('posts')
-          .where('authorId', isEqualTo: AuthService.getCurrentUserId())
+          .where('authorId', isEqualTo: widget.profileId)
           .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
@@ -419,12 +420,17 @@ class _PostScreenState extends State<PostScreen> {
                                 // Thêm userId vào mảng likedBy
                               });
                             } else {
-                              // Nếu đã thả like rồi, thông báo cho người dùng biết
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                    content:
-                                        Text("Bạn đã thả like bài viết này")),
-                              );
+                              // // Nếu đã thả like rồi, thông báo cho người dùng biết
+                              // ScaffoldMessenger.of(context).showSnackBar(
+                              //   SnackBar(
+                              //       content:
+                              //           Text("Bạn đã thả like bài viết này")),
+                              // );
+                              await postRef.update({
+                                'likes': FieldValue.increment(-1),
+                                'likedBy':
+                                FieldValue.arrayRemove([currentUser.uid]),
+                              });
                             }
                           },
                           child: Row(

@@ -1,5 +1,3 @@
-import 'dart:ffi';
-
 import 'package:flutter/material.dart';
 import '../util/places.dart';
 
@@ -62,6 +60,7 @@ class _RankingScreenState extends State<RankingScreen> {
         final bCheckin = _getFieldValue(b, checkinField);
         return bCheckin.compareTo(aCheckin);
       });
+    print('Place: $checkinSorted');
 
     final ratingSorted = List<Place>.from(places)
       ..sort((a, b) {
@@ -149,7 +148,7 @@ class _RankingScreenState extends State<RankingScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    ...checkinSorted.take(3).map((p) => _buildCheckinRow(p)),
+                    ...checkinSorted.take(5).map((p) => _buildCheckinRow(p)),
 
                     const SizedBox(height: 20),
 
