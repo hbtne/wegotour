@@ -25,6 +25,8 @@ class _ProfileState extends State<Profile> {
   final int _currentIndex = 2;
   Map<String, dynamic>? _profileData;
   bool _isLoading = true;
+  List<Map<String, dynamic>> _badges = [];
+  String? _selectedBadgeId;
 
   final List<IconData> icons = [
     Icons.timeline_outlined,
@@ -33,6 +35,7 @@ class _ProfileState extends State<Profile> {
   ];
 
   final List<Widget> _pages = [const PostScreen()];
+
   Future<void> _logout(BuildContext context) async {
     try {
       await FirebaseAuth.instance.signOut();
@@ -43,10 +46,12 @@ class _ProfileState extends State<Profile> {
       );
     }
   }
+
   @override
   void initState() {
     super.initState();
     _fetchProfile();
+    _fetchBadges();
   }
 
   Future<void> _fetchProfile() async {
@@ -57,8 +62,6 @@ class _ProfileState extends State<Profile> {
         setState(() {
           _profileData = data;
           _isLoading = false;
-
-
         });
       }
     } catch (e) {
@@ -71,6 +74,39 @@ class _ProfileState extends State<Profile> {
     }
   }
 
+  Future<void> _fetchBadges() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        print('🔍 Fetching badges for userId: ${user.uid}');
+
+        final badgesSnap = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('badges')
+            .get();
+
+        print('📛 Found ${badgesSnap.docs.length} badges');
+
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        setState(() {
+          _badges = badgesSnap.docs.map((doc) {
+            print('Badge: ${doc.id} - ${doc.data()}');
+            return {'id': doc.id, ...doc.data()};
+          }).toList();
+          _selectedBadgeId = userDoc.data()?['selectedBadge'];
+          print('✅ Total badges loaded: ${_badges.length}');
+        });
+      }
+    } catch (e) {
+      print('❌ Failed to load badges: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
@@ -80,7 +116,8 @@ class _ProfileState extends State<Profile> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: Color.fromARGB(255, 35, 52, 10)),
+            icon: const Icon(Icons.logout,
+                color: Color.fromARGB(255, 35, 52, 10)),
             onPressed: () {
               _logout(context);
             },
@@ -91,13 +128,16 @@ class _ProfileState extends State<Profile> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              ProfileImage(size: size, docId: FirebaseAuth.instance.currentUser?.uid ?? ""),
+              ProfileImage(
+                  size: size,
+                  docId: FirebaseAuth.instance.currentUser?.uid ?? ""),
               profileInfo(),
               profileActivity(),
-              if (!_isLoading && _profileData != null)
-                profileEvents(size),
+              // ✅ Thêm phần hiển thị badges
+              if (!_isLoading && _profileData != null) _buildBadgesSection(),
+              if (!_isLoading && _profileData != null) profileEvents(size),
               SizedBox(
-                height: 5530, // Constrain the height of the PostScreen
+                height: 5530,
                 child: _pages[_selectedEvent],
               ),
             ],
@@ -105,6 +145,282 @@ class _ProfileState extends State<Profile> {
         ),
       ),
     );
+  }
+
+  // ✅ Widget hiển thị danh sách badges
+  Widget _buildBadgesSection() {
+    if (_badges.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Huy hiệu',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color.fromARGB(255, 35, 52, 10),
+                ),
+              ),
+              TextButton(
+                onPressed: _showBadgeSelectionDialog,
+                child: const Text(
+                  'Chọn huy hiệu',
+                  style: TextStyle(color: Color(0xFF2D4D0A)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 100,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: _badges.length > 5 ? 5 : _badges.length,
+            itemBuilder: (ctx, i) {
+              final badge = _badges[i];
+              final icon = badge['icon'] ?? '';
+              final name = badge['name'] ?? 'Badge';
+              final badgeId = badge['id'];
+              final isSelected = badgeId == _selectedBadgeId;
+
+              return GestureDetector(
+                onTap: _showBadgeSelectionDialog,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.grey[200],
+                          border: Border.all(
+                            color: isSelected
+                                ? Colors.amber
+                                : const Color(0xFF2D4D0A),
+                            width: isSelected ? 3 : 2,
+                          ),
+                        ),
+                        child: icon.isNotEmpty
+                            ? ClipOval(
+                                child: Image.network(
+                                  icon,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.emoji_events,
+                                    size: 32,
+                                    color: Colors.amber,
+                                  ),
+                                ),
+                              )
+                            : const Icon(
+                                Icons.emoji_events,
+                                size: 32,
+                                color: Colors.amber,
+                              ),
+                      ),
+                      const SizedBox(height: 4),
+                      SizedBox(
+                        width: 70,
+                        child: Text(
+                          name,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: const Color.fromARGB(255, 35, 52, 10),
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Divider(height: 1, thickness: 1),
+      ],
+    );
+  }
+
+  void _showBadgeSelectionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          constraints: const BoxConstraints(maxHeight: 500),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Chọn huy hiệu hiển thị',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2D4D0A),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 0.8,
+                  ),
+                  itemCount: _badges.length,
+                  itemBuilder: (ctx, i) {
+                    final badge = _badges[i];
+                    final icon = badge['icon'] ?? '';
+                    final name = badge['name'] ?? 'Badge';
+                    final badgeId = badge['id'];
+                    final isSelected = badgeId == _selectedBadgeId;
+                    final earnedAt = badge['earnedAt'];
+
+                    return GestureDetector(
+                      onTap: () async {
+                        await _selectBadge(badgeId);
+                        Navigator.pop(context);
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Colors.amber.shade50
+                              : Colors.grey[100],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected
+                                ? Colors.amber
+                                : Colors.grey.shade300,
+                            width: isSelected ? 3 : 1,
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (isSelected)
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: 4),
+                                child: Icon(
+                                  Icons.check_circle,
+                                  color: Colors.amber,
+                                  size: 20,
+                                ),
+                              ),
+                            Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                              ),
+                              child: icon.isNotEmpty
+                                  ? ClipOval(
+                                      child: Image.network(
+                                        icon,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
+                                            const Icon(
+                                          Icons.emoji_events,
+                                          size: 28,
+                                          color: Colors.amber,
+                                        ),
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.emoji_events,
+                                      size: 28,
+                                      color: Colors.amber,
+                                    ),
+                            ),
+                            const SizedBox(height: 6),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              child: Text(
+                                name,
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  color: const Color(0xFF2D4D0A),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  'Đóng',
+                  style: TextStyle(color: Color(0xFF2D4D0A)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectBadge(String badgeId) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({'selectedBadge': badgeId});
+
+        setState(() {
+          _selectedBadgeId = badgeId;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã chọn huy hiệu!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Widget profileEvents(Size size) {
@@ -115,10 +431,15 @@ class _ProfileState extends State<Profile> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _buildEventButton("Bài viết", 0,(_profileData!['posts'] as List?)?.length.toString() ?? "0"),
-            _buildEventButton("Đánh giá", 1, (_profileData!['reviews'] as List?)?.length.toString() ?? "0"),
-            _buildEventButton("Lịch trình", 2, (_profileData!['saveTours'] as List?)?.length.toString() ?? "0"),
-
+            _buildEventButton("Bài viết", 0,
+                (_profileData!['posts'] as List?)?.length.toString() ?? "0"),
+            _buildEventButton("Đánh giá", 1,
+                (_profileData!['reviews'] as List?)?.length.toString() ?? "0"),
+            _buildEventButton(
+                "Lịch trình",
+                2,
+                (_profileData!['saveTours'] as List?)?.length.toString() ??
+                    "0"),
           ],
         ),
         const SizedBox(height: 16),
@@ -129,13 +450,13 @@ class _ProfileState extends State<Profile> {
           children: [
             _buildActionButton("Thêm bài viết", onPressed: () async {
               final result = await Navigator.push(
-              context,
+                context,
                 MaterialPageRoute(
                   builder: (context) => const AddPostScreen(),
                 ),
               );
               if (result == true) {
-                _fetchProfile(); // Reload lại dữ liệu
+                _fetchProfile();
               }
             }),
             _buildActionButton("Lịch trình đã lưu", onPressed: () {
@@ -211,9 +532,9 @@ class _ProfileState extends State<Profile> {
     }
     return Column(
       children: [
-         Text(
+        Text(
           _profileData!['username'] ?? "Unknown",
-          style: TextStyle(
+          style: const TextStyle(
             color: Color.fromARGB(255, 35, 52, 10),
             fontWeight: FontWeight.bold,
             fontSize: 24,
@@ -235,9 +556,9 @@ class _ProfileState extends State<Profile> {
             const SizedBox(width: 16),
             SvgPicture.string(LocateIcon.locateSVG, height: 16, width: 16),
             const SizedBox(width: 4),
-             Text(
+            Text(
               _profileData!['location'] ?? "Unknown",
-              style: TextStyle(
+              style: const TextStyle(
                 color: Color.fromARGB(255, 35, 52, 10),
                 fontSize: 14,
               ),
@@ -249,14 +570,14 @@ class _ProfileState extends State<Profile> {
   }
 
   Widget profileActivity() {
-    return const SizedBox(height: 16); // Placeholder or custom widget
+    return const SizedBox(height: 16);
   }
 }
+
 Future<Map<String, dynamic>> getProfileData(String docId) async {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
   try {
-    // Fetch user data from Firestore
     final userDoc = await firestore.collection('users').doc(docId).get();
     if (!userDoc.exists) {
       throw Exception('User not found');
@@ -264,14 +585,12 @@ Future<Map<String, dynamic>> getProfileData(String docId) async {
 
     final username = userDoc.data()?['username'] ?? 'Unknown';
 
-
-
-    // Combine Firestore data with location data
     return {
       'avatar': userDoc.data()?['avatar'] ?? 'default_avatar.png',
       'posts': userDoc.data()?['posts'] ?? [],
       'reviews': userDoc.data()?['reviews'] ?? [],
       'saveTours': userDoc.data()?['saveTours'] ?? [],
+      'badges': userDoc.data()?['badges'] ?? [], // ✅ Thêm badges
       'username': username,
       'location': currentLocationDetail[1],
     };

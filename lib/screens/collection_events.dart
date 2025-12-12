@@ -15,7 +15,6 @@ class CollectionEventsList extends StatelessWidget {
         stream: FirebaseFirestore.instance
             .collection('collect_events')
             .where('category', isEqualTo: 'collection')
-            // ✅ BỎ orderBy để tránh lỗi index, sẽ sort trên client
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -47,25 +46,25 @@ class CollectionEventsList extends StatelessWidget {
                 children: [
                   Icon(Icons.event_busy, size: 64, color: Colors.grey[400]),
                   const SizedBox(height: 16),
-                  Text('Chưa có sự kiện nào', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                  Text('Chưa có sự kiện nào',
+                      style: TextStyle(fontSize: 16, color: Colors.grey[600])),
                 ],
               ),
             );
           }
 
-          // ✅ Sort trên client side (sau khi lấy data)
           final docs = snapshot.data!.docs;
           docs.sort((a, b) {
             final aData = a.data() as Map<String, dynamic>;
             final bData = b.data() as Map<String, dynamic>;
             final aStart = (aData['startAt'] as Timestamp?)?.toDate();
             final bStart = (bData['startAt'] as Timestamp?)?.toDate();
-            
+
             if (aStart == null && bStart == null) return 0;
             if (aStart == null) return 1;
             if (bStart == null) return -1;
-            
-            return bStart.compareTo(aStart); // Mới nhất trước (descending)
+
+            return bStart.compareTo(aStart);
           });
 
           return ListView.builder(
@@ -74,27 +73,24 @@ class CollectionEventsList extends StatelessWidget {
             itemBuilder: (context, index) {
               final doc = docs[index];
               final data = doc.data() as Map<String, dynamic>;
-              
-              // Parse dữ liệu
+
               final title = data['title'] ?? 'Không có tiêu đề';
               final description = data['description'] ?? '';
               final badge = data['badge'] as Map<String, dynamic>?;
               final badgeIcon = badge?['icon'] ?? '';
-              
-              // Kiểm tra trạng thái
+
               final startAt = (data['startAt'] as Timestamp?)?.toDate();
               final endAt = (data['endAt'] as Timestamp?)?.toDate();
               final now = DateTime.now();
-              
+
               final hasStarted = startAt != null && now.isAfter(startAt);
               final hasEnded = endAt != null && now.isAfter(endAt);
               final isActive = hasStarted && !hasEnded;
 
-              // Màu sắc theo trạng thái
               Color statusColor;
               String statusText;
               IconData statusIcon;
-              
+
               if (hasEnded) {
                 statusColor = Colors.grey;
                 statusText = 'Đã kết thúc';
@@ -112,22 +108,21 @@ class CollectionEventsList extends StatelessWidget {
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
-                  onTap: hasEnded 
-                      ? null 
-                      : () => Navigator.pushNamed(
-                            context, 
-                            '/event_collection', 
-                            arguments: doc.id,
-                          ),
+                  // ✅ BỎ kiểm tra hasEnded => luôn cho phép mở
+                  onTap: () => Navigator.pushNamed(
+                    context,
+                    '/event_collection',
+                    arguments: doc.id,
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(12),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Icon/Badge
                         Container(
                           width: 60,
                           height: 60,
@@ -141,14 +136,14 @@ class CollectionEventsList extends StatelessWidget {
                                   child: Image.network(
                                     badgeIcon,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const Icon(Icons.emoji_events, size: 32),
+                                    errorBuilder: (_, __, ___) => const Icon(
+                                        Icons.emoji_events,
+                                        size: 32),
                                   ),
                                 )
                               : const Icon(Icons.emoji_events, size: 32),
                         ),
                         const SizedBox(width: 12),
-
-                        // Nội dung
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,41 +161,43 @@ class CollectionEventsList extends StatelessWidget {
                               if (description.isNotEmpty)
                                 Text(
                                   description,
-                                  style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                                  style: TextStyle(
+                                      fontSize: 14, color: Colors.grey[700]),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               const SizedBox(height: 8),
-                              
-                              // Thời gian
                               Row(
                                 children: [
-                                  Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
+                                  Icon(Icons.access_time,
+                                      size: 14, color: Colors.grey[600]),
                                   const SizedBox(width: 4),
                                   Text(
                                     '${_formatDate(startAt)} - ${_formatDate(endAt)}',
-                                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                    style: TextStyle(
+                                        fontSize: 12, color: Colors.grey[600]),
                                   ),
                                 ],
                               ),
                             ],
                           ),
                         ),
-
-                        // Status badge
                         Column(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: statusColor.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: statusColor, width: 1),
+                                border:
+                                    Border.all(color: statusColor, width: 1),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(statusIcon, size: 14, color: statusColor),
+                                  Icon(statusIcon,
+                                      size: 14, color: statusColor),
                                   const SizedBox(width: 4),
                                   Text(
                                     statusText,
@@ -213,10 +210,9 @@ class CollectionEventsList extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            if (!hasEnded) ...[
-                              const SizedBox(height: 8),
-                              Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
-                            ],
+                            const SizedBox(height: 8),
+                            Icon(Icons.arrow_forward_ios,
+                                size: 16, color: Colors.grey[400]),
                           ],
                         ),
                       ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 class CollectionEventDetailScreen extends StatefulWidget {
   final String eventId;
@@ -8,10 +9,13 @@ class CollectionEventDetailScreen extends StatefulWidget {
   const CollectionEventDetailScreen({super.key, required this.eventId});
 
   @override
-  State<CollectionEventDetailScreen> createState() => _CollectionEventDetailScreenState();
+  State<CollectionEventDetailScreen> createState() =>
+      _CollectionEventDetailScreenState();
 }
 
-class _CollectionEventDetailScreenState extends State<CollectionEventDetailScreen> with SingleTickerProviderStateMixin {
+class _CollectionEventDetailScreenState
+    extends State<CollectionEventDetailScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -82,13 +86,19 @@ class _CollectionEventDetailScreenState extends State<CollectionEventDetailScree
                       ),
                     ),
                     child: Center(
-                      child: badge != null && badge['icon'] != null && badge['icon'].toString().isNotEmpty
+                      child: badge != null &&
+                              badge['icon'] != null &&
+                              badge['icon'].toString().isNotEmpty
                           ? Image.network(
                               badge['icon'],
                               height: 100,
-                              errorBuilder: (_, __, ___) => const Icon(Icons.emoji_events, size: 80, color: Colors.white),
+                              errorBuilder: (_, __, ___) => const Icon(
+                                  Icons.emoji_events,
+                                  size: 80,
+                                  color: Colors.white),
                             )
-                          : const Icon(Icons.emoji_events, size: 80, color: Colors.white),
+                          : const Icon(Icons.emoji_events,
+                              size: 80, color: Colors.white),
                     ),
                   ),
                 ),
@@ -110,11 +120,13 @@ class _CollectionEventDetailScreenState extends State<CollectionEventDetailScree
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: keywords.map((kw) => Chip(
-                            avatar: const Icon(Icons.search, size: 16),
-                            label: Text(kw),
-                            backgroundColor: Colors.blue.shade50,
-                          )).toList(),
+                          children: keywords
+                              .map((kw) => Chip(
+                                    avatar: const Icon(Icons.search, size: 16),
+                                    label: Text(kw),
+                                    backgroundColor: Colors.blue.shade50,
+                                  ))
+                              .toList(),
                         ),
                       const SizedBox(height: 16),
 
@@ -130,7 +142,8 @@ class _CollectionEventDetailScreenState extends State<CollectionEventDetailScree
                                 const SizedBox(width: 8),
                                 Text(
                                   'Còn ${_calculateTimeLeft(endAt)}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -146,9 +159,90 @@ class _CollectionEventDetailScreenState extends State<CollectionEventDetailScree
                               children: [
                                 Icon(Icons.lock_clock, color: Colors.grey),
                                 SizedBox(width: 8),
-                                Text('Sự kiện đã kết thúc', style: TextStyle(fontWeight: FontWeight.bold)),
+                                Text('Sự kiện đã kết thúc',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
                               ],
                             ),
+                          ),
+                        ),
+                      if (hasEnded)
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.amber,
+                              foregroundColor: Colors.black,
+                              minimumSize: const Size(double.infinity, 50),
+                            ),
+                            icon: const Icon(Icons.emoji_events),
+                            label: const Text('🎖️ Cấp huy hiệu ngay'),
+onPressed: () async {
+  print('========================================');
+  print('🔥 BADGE AWARD BUTTON PRESSED');
+  print('========================================');
+
+  // Check 1: User authentication
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('❌ Bạn cần đăng nhập để cấp huy hiệu!'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+
+  // Show loading
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const Center(child: CircularProgressIndicator()),
+  );
+
+  try {
+    // 🔥 CALLABLE FUNCTION
+    final callable = FirebaseFunctions.instance
+        .httpsCallable('manualAwardBadges');
+
+    final result = await callable.call({
+      'eventId': widget.eventId,
+    });
+
+    Navigator.pop(context); // Close loading
+
+    final awarded = result.data['awarded'] ?? 0;
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              Text('🎉 Đã cấp huy hiệu cho $awarded người!'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  } on FirebaseFunctionsException catch (e) {
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('❌ Lỗi Functions: ${e.message}'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  } catch (e) {
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('❌ Lỗi: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
+
                           ),
                         ),
                     ],
@@ -196,7 +290,7 @@ class _CollectionEventDetailScreenState extends State<CollectionEventDetailScree
           if (!snapshot.hasData || !snapshot.data!.exists) {
             return const SizedBox.shrink();
           }
-          
+
           final eventData = snapshot.data!.data() as Map<String, dynamic>;
           final endAt = (eventData['endAt'] as Timestamp?)?.toDate();
           final hasEnded = endAt != null && DateTime.now().isAfter(endAt);
@@ -204,7 +298,8 @@ class _CollectionEventDetailScreenState extends State<CollectionEventDetailScree
           if (hasEnded) return const SizedBox.shrink();
 
           return FloatingActionButton.extended(
-            onPressed: () => _showSubmissionDialog(context, widget.eventId, eventData),
+            onPressed: () =>
+                _showSubmissionDialog(context, widget.eventId, eventData),
             icon: const Icon(Icons.add_photo_alternate),
             label: const Text('Đăng bài'),
           );
@@ -253,7 +348,8 @@ class _CollectionEventDetailScreenState extends State<CollectionEventDetailScree
               children: [
                 Icon(Icons.inbox, size: 64, color: Colors.grey),
                 SizedBox(height: 16),
-                Text('Chưa có bài đăng nào', style: TextStyle(fontSize: 16, color: Colors.grey)),
+                Text('Chưa có bài đăng nào',
+                    style: TextStyle(fontSize: 16, color: Colors.grey)),
               ],
             ),
           );
@@ -265,11 +361,11 @@ class _CollectionEventDetailScreenState extends State<CollectionEventDetailScree
           final bData = b.data() as Map<String, dynamic>;
           final aTime = (aData['createdAt'] as Timestamp?)?.toDate();
           final bTime = (bData['createdAt'] as Timestamp?)?.toDate();
-          
+
           if (aTime == null && bTime == null) return 0;
           if (aTime == null) return 1;
           if (bTime == null) return -1;
-          
+
           return bTime.compareTo(aTime); // Mới nhất trước
         });
 
@@ -279,7 +375,7 @@ class _CollectionEventDetailScreenState extends State<CollectionEventDetailScree
           itemBuilder: (context, index) {
             final doc = submissions[index];
             final data = doc.data() as Map<String, dynamic>;
-            
+
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
               child: Column(
@@ -288,19 +384,23 @@ class _CollectionEventDetailScreenState extends State<CollectionEventDetailScree
                   // User info
                   ListTile(
                     leading: CircleAvatar(
-                      backgroundImage: data['userAvatar'] != null && data['userAvatar'].toString().isNotEmpty
+                      backgroundImage: data['userAvatar'] != null &&
+                              data['userAvatar'].toString().isNotEmpty
                           ? NetworkImage(data['userAvatar'])
                           : null,
-                      child: data['userAvatar'] == null || data['userAvatar'].toString().isEmpty
+                      child: data['userAvatar'] == null ||
+                              data['userAvatar'].toString().isEmpty
                           ? const Icon(Icons.person)
                           : null,
                     ),
                     title: Text(data['userName'] ?? 'Unknown'),
-                    subtitle: Text(_formatTimestamp(data['createdAt'] as Timestamp?)),
+                    subtitle:
+                        Text(_formatTimestamp(data['createdAt'] as Timestamp?)),
                   ),
-                  
+
                   // Image
-                  if (data['imageUrl'] != null && data['imageUrl'].toString().isNotEmpty)
+                  if (data['imageUrl'] != null &&
+                      data['imageUrl'].toString().isNotEmpty)
                     Image.network(
                       data['imageUrl'],
                       fit: BoxFit.cover,
@@ -308,7 +408,8 @@ class _CollectionEventDetailScreenState extends State<CollectionEventDetailScree
                         height: 200,
                         color: Colors.grey[300],
                         child: const Center(
-                          child: Icon(Icons.broken_image, size: 64, color: Colors.grey),
+                          child: Icon(Icons.broken_image,
+                              size: 64, color: Colors.grey),
                         ),
                       ),
                       loadingBuilder: (context, child, loadingProgress) {
@@ -319,24 +420,27 @@ class _CollectionEventDetailScreenState extends State<CollectionEventDetailScree
                           child: Center(
                             child: CircularProgressIndicator(
                               value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                      loadingProgress.expectedTotalBytes!
                                   : null,
                             ),
                           ),
                         );
                       },
                     ),
-                  
+
                   // Caption
-                  if (data['caption'] != null && data['caption'].toString().isNotEmpty)
+                  if (data['caption'] != null &&
+                      data['caption'].toString().isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.all(12),
                       child: Text(data['caption']),
                     ),
-                  
+
                   // Interactions
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     child: Row(
                       children: [
                         _buildInteractionButton(
@@ -351,14 +455,17 @@ class _CollectionEventDetailScreenState extends State<CollectionEventDetailScree
                           onTap: () {
                             // TODO: Implement comments
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Tính năng comment đang phát triển')),
+                              const SnackBar(
+                                  content: Text(
+                                      'Tính năng comment đang phát triển')),
                             );
                           },
                         ),
                         const Spacer(),
                         Text(
                           '${data['score'] ?? 0} điểm',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, color: Colors.blue),
                         ),
                       ],
                     ),
@@ -412,7 +519,8 @@ class _CollectionEventDetailScreenState extends State<CollectionEventDetailScree
               children: [
                 Icon(Icons.people_outline, size: 64, color: Colors.grey),
                 SizedBox(height: 16),
-                Text('Chưa có người tham gia', style: TextStyle(fontSize: 16, color: Colors.grey)),
+                Text('Chưa có người tham gia',
+                    style: TextStyle(fontSize: 16, color: Colors.grey)),
               ],
             ),
           );
@@ -433,7 +541,7 @@ class _CollectionEventDetailScreenState extends State<CollectionEventDetailScree
           itemBuilder: (context, index) {
             final data = entries[index].data() as Map<String, dynamic>;
             final rank = index + 1;
-            
+
             Color? rankColor;
             IconData? rankIcon;
             if (rank == 1) {
@@ -559,7 +667,8 @@ class _CollectionEventDetailScreenState extends State<CollectionEventDetailScree
     }
   }
 
-  void _showSubmissionDialog(BuildContext context, String eventId, Map<String, dynamic> eventData) {
+  void _showSubmissionDialog(
+      BuildContext context, String eventId, Map<String, dynamic> eventData) {
     Navigator.pushNamed(
       context,
       '/event_submit',
@@ -602,7 +711,8 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => _tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: _tabBar,

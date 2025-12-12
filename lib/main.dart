@@ -17,6 +17,7 @@ import 'package:stour/screens/dashboardBusiness_screen.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:stour/screens/dashboardAdmin_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 
 // Import collection event screens
 import 'package:stour/screens/create_collection_event.dart';
@@ -37,6 +38,11 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // App Check tạm thời bị vô hiệu hóa - Cấu hình trên Firebase Console nếu muốn sử dụng
+  // await FirebaseAppCheck.instance.activate(
+  //   androidProvider: AndroidProvider.debug,
+  //   appleProvider: AppleProvider.debug,
+  // );
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   const AndroidInitializationSettings initializationSettingsAndroid =
       AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -119,13 +125,15 @@ class _MyAppState extends State<MyApp> {
           case '/signup':
             return MaterialPageRoute(builder: (_) => const SignUpScreen());
           case '/role':
-            return MaterialPageRoute(builder: (_) => const RoleSelectionScreen());
+            return MaterialPageRoute(
+                builder: (_) => const RoleSelectionScreen());
           case '/profile':
             return MaterialPageRoute(builder: (_) => const Profile());
           case '/coupon':
             return MaterialPageRoute(builder: (_) => const CouponScreen());
           case '/forgot':
-            return MaterialPageRoute(builder: (_) => const ForgotPasswordScreen());
+            return MaterialPageRoute(
+                builder: (_) => const ForgotPasswordScreen());
           case '/menuBusiness':
             return MaterialPageRoute(builder: (_) => const MenuBusiness());
           case '/menuAdmin':
@@ -160,7 +168,9 @@ class _MyAppState extends State<MyApp> {
           case '/event_submit':
             // Đăng bài tham gia event - cần eventId và keywords
             final args = settings.arguments as Map<String, dynamic>?;
-            if (args == null || args['eventId'] == null || args['keywords'] == null) {
+            if (args == null ||
+                args['eventId'] == null ||
+                args['keywords'] == null) {
               return MaterialPageRoute(
                 builder: (_) => const Scaffold(
                   body: Center(child: Text('Thiếu thông tin event')),

@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class VisionApiService {
-  // ⚠️ QUAN TRỌNG: Thêm API key vào .env hoặc constants
   static String get apiKey => dotenv.env['GOOGLE_API_KEY'] ?? '';
 
   /// Validate ảnh có chứa keywords không
