@@ -12,7 +12,7 @@ class CreateGroupScreen extends StatefulWidget {
 class _CreateGroupScreenState extends State<CreateGroupScreen> {
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
-  List<Map<String, dynamic>> _members = [];
+  final List<Map<String, dynamic>> _members = [];
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool _isLoading = false;
 

@@ -10,6 +10,8 @@ import 'addPost_screen.dart';
 import '../assets/icons/group_feed_bar.dart';
 import '../assets/icons/chat_feed_bar.dart';
 
+import 'package:stour/screens/collection_events.dart';
+
 class Feeds extends StatefulWidget {
   const Feeds({super.key});
 
@@ -31,10 +33,7 @@ class _FeedsState extends State<Feeds> {
   Future<void> _getUser() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      final doc = await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      final doc = await _firestore.collection('users').doc(user.uid).get();
 
       setState(() {
         userData = doc.data();
@@ -62,28 +61,41 @@ class _FeedsState extends State<Feeds> {
                 if (snapshot.hasError) {
                   return Center(child: Text('Lỗi: ${snapshot.error}'));
                 }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text('Chưa có bài viết nào'));
-                }
+
+                final docs = snapshot.data?.docs ?? [];
 
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 10),
-                  itemCount: snapshot.data!.docs.length,
+                  itemCount: docs.length + 1, // +1 vì có ListTile sự kiện
                   itemBuilder: (context, index) {
-                    final postData = snapshot.data!.docs[index];
+                    // === NÚT SỰ KIỆN SƯU TẦM ===
+                    if (index == 0) {
+                      return ListTile(
+                        leading: const Icon(Icons.local_offer, color: Colors.blue),
+                        title: const Text('Sự kiện sưu tầm'),
+                        subtitle: const Text('Tham gia, đăng bài và nhận huy hiệu'),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const CollectionEventsList()),
+                        ),
+                      );
+                    }
+
+                    final postData = docs[index - 1];
                     final data = postData.data() as Map<String, dynamic>;
                     final authorId = data['authorId'] ?? '';
+
                     return FutureBuilder<DocumentSnapshot>(
-                      future:
-                          _firestore.collection('users').doc(authorId).get(),
+                      future: _firestore.collection('users').doc(authorId).get(),
                       builder: (context, userSnapshot) {
-                        if (userSnapshot.connectionState ==
-                            ConnectionState.waiting) {
+                        if (userSnapshot.connectionState == ConnectionState.waiting) {
                           return const SizedBox();
                         }
+
                         final user = (userSnapshot.data?.data()
                                 as Map<String, dynamic>?) ??
                             {};
+
                         return PostItem(
                           postId: postData.id,
                           groupId: data['groupId'] ?? '',
@@ -136,7 +148,7 @@ class _FeedsState extends State<Feeds> {
         IconButton(
             icon: SvgPicture.string(chatFeedSVG, height: 30, width: 30),
             onPressed: () async {
-              final result = await Navigator.push(
+              await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const GroupMessageScreen(),
@@ -157,19 +169,16 @@ class _FeedsState extends State<Feeds> {
             backgroundColor: Colors.transparent,
             backgroundImage: avatarUrl != null
                 ? NetworkImage(avatarUrl)
-                : const AssetImage('assets/default_avatar.png')
-                    as ImageProvider,
+                : const AssetImage('assets/default_avatar.png') as ImageProvider,
           ),
           const SizedBox(width: 10),
           Expanded(
             child: TextField(
-              readOnly: true, // để không bật bàn phím
+              readOnly: true,
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (context) => AddPostScreen()
-                  ),
+                  MaterialPageRoute(builder: (context) => AddPostScreen()),
                 );
               },
               decoration: InputDecoration(
@@ -177,7 +186,7 @@ class _FeedsState extends State<Feeds> {
                 filled: true,
                 fillColor: Colors.white,
                 contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
                   borderSide: const BorderSide(color: Color(0xff2e582b)),
@@ -201,7 +210,7 @@ class _FeedsState extends State<Feeds> {
           final data = doc.data();
           if (data != null) {
             results.add(data);
-            break; // đã tìm thấy thì khỏi tìm tiếp
+            break;
           }
         }
       }

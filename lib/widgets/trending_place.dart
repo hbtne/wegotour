@@ -117,10 +117,11 @@ class _TrendingPlaceState extends State<TrendingPlace> {
                       child: Text(
                         widget.place.name,
                         style: const TextStyle(
-                          fontSize: 20.0,
+                          fontSize: 18.0,
                           fontWeight: FontWeight.w800,
                         ),
                         textAlign: TextAlign.left,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
@@ -130,11 +131,12 @@ class _TrendingPlaceState extends State<TrendingPlace> {
                     child: SizedBox(
                       width: MediaQuery.of(context).size.width,
                       child: Text(
-                        widget.place.address,
+                        widget.place.history,
                         style: const TextStyle(
-                          fontSize: 12.0,
+                          fontSize: 10.0,
                           fontWeight: FontWeight.w300,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),

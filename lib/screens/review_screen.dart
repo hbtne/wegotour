@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:stour/model/review.dart';
 import 'package:stour/util/const.dart';
 import 'package:stour/util/reviews.dart';
-// import 'package:stour/widgets/review_card.dart';
 import 'package:stour/screens/create_review_screen.dart';
 import 'package:stour/model/ui_reviews.dart';
 

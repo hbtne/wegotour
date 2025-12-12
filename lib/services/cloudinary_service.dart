@@ -2,7 +2,7 @@ import 'package:cloudinary_public/cloudinary_public.dart';
 
 class CloudinaryService {
   final cloudinary = CloudinaryPublic(
-    'dibmnb2rp', // Cloud name của bạn
+    'dibmnb2rp', // Cloudinary cloud name
     '515184799815318', // API key
   );
 

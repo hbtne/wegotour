@@ -19,9 +19,16 @@ import 'package:stour/screens/dashboardBusiness_screen.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:stour/screens/dashboardAdmin_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
+
+// Import collection event screens
+import 'package:stour/screens/create_collection_event.dart';
+import 'package:stour/screens/collection_event_details_screen.dart';
+import 'package:stour/screens/event_submission_widget.dart';
+import 'package:stour/screens/collection_events.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-FlutterLocalNotificationsPlugin();
+    FlutterLocalNotificationsPlugin();
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -33,28 +40,27 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
-
-  // ✅ INIT FIREBASE
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
-  // ✅ XIN QUYỀN THÔNG BÁO (BẮT BUỘC)
+  // App Check tạm thời bị vô hiệu hóa - Cấu hình trên Firebase Console nếu muốn sử dụng
+  // await FirebaseAppCheck.instance.activate(
+  //   androidProvider: AndroidProvider.debug,
+  //   appleProvider: AppleProvider.debug,
+  // );
   await FirebaseMessaging.instance.requestPermission();
 
-  // ✅ BACKGROUND HANDLER
   FirebaseMessaging.onBackgroundMessage(
       _firebaseMessagingBackgroundHandler);
 
-  // ✅ LOCAL NOTIFICATION INIT
   const AndroidInitializationSettings initializationSettingsAndroid =
-  AndroidInitializationSettings('@mipmap/ic_launcher');
+      AndroidInitializationSettings('@mipmap/ic_launcher');
 
   const DarwinInitializationSettings iosSettings =
-  DarwinInitializationSettings();
+      DarwinInitializationSettings();
 
   const WindowsInitializationSettings windowsSettings =
-  WindowsInitializationSettings(
+      WindowsInitializationSettings(
     appName: 'WeGoTour',
     appUserModelId: 'com.wegotour.app',
     guid: 'b3ea77c3-e332-4bc6-9e61-59c91d63e85d',
@@ -68,7 +74,6 @@ void main() async {
 
   await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
-  // ✅ LẮNG NGHE THÔNG BÁO KHI APP ĐANG MỞ (FOREGROUND)
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
     if (message.notification != null) {
       flutterLocalNotificationsPlugin.show(
@@ -89,7 +94,6 @@ void main() async {
 
   getAllPlaceFoodStream('stourplace1');
   getAllPlaceFoodStream('food');
-
   runApp(const MyApp());
 }
 
@@ -106,10 +110,9 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     checkLoginStatus();
-    refreshFCMToken(); // ✅ TỰ ĐỘNG REFRESH TOKEN
+    refreshFCMToken();
   }
 
-  // ✅ REFRESH & LƯU FCM TOKEN KHI MỞ APP
   Future<void> refreshFCMToken() async {
     try {
       final token = await FirebaseMessaging.instance.getToken();
@@ -126,9 +129,9 @@ class _MyAppState extends State<MyApp> {
         "fcmToken": token,
       });
 
-      print("✅ Refreshed FCM Token: $token");
+      print("Refreshed FCM Token: $token");
     } catch (e) {
-      print("❌ Lỗi lấy FCM Token: $e");
+      print("Lỗi lấy FCM Token: $e");
     }
   }
 
@@ -163,17 +166,82 @@ class _MyAppState extends State<MyApp> {
       theme: ThemeData(
         fontFamily: 'Montserrat',
       ),
-      routes: {
-        '/home': (context) => const MainScreen(),
-        '/signin': (context) => const SignInScreen(),
-        '/signup': (context) => const SignUpScreen(),
-        '/role': (context) => const RoleSelectionScreen(),
-        '/profile': (context) =>
-            Profile(profileId: AuthService.getCurrentUserId()!),
-        '/coupon': (context) => const CouponScreen(),
-        '/forgot': (context) => const ForgotPasswordScreen(),
-        '/menuBusiness': (context) => const MenuBusiness(),
-        '/menuAdmin': (context) => const MenuAdmin(),
+      onGenerateRoute: (settings) {
+        switch (settings.name) {
+          case '/home':
+            return MaterialPageRoute(builder: (_) => const MainScreen());
+          case '/signin':
+            return MaterialPageRoute(builder: (_) => const SignInScreen());
+          case '/signup':
+            return MaterialPageRoute(builder: (_) => const SignUpScreen());
+          case '/role':
+            return MaterialPageRoute(
+                builder: (_) => const RoleSelectionScreen());
+          case '/profile':
+            return MaterialPageRoute(builder: (_) => const Profile(AuthService.getCurrentUserId()!));
+          case '/coupon':
+            return MaterialPageRoute(builder: (_) => const CouponScreen());
+          case '/forgot':
+            return MaterialPageRoute(
+                builder: (_) => const ForgotPasswordScreen());
+          case '/menuBusiness':
+            return MaterialPageRoute(builder: (_) => const MenuBusiness());
+          case '/menuAdmin':
+            return MaterialPageRoute(builder: (_) => const MenuAdmin());
+
+          case '/create_collection_event':
+            return MaterialPageRoute(
+              builder: (_) => const CreateCollectionEvent(),
+            );
+
+          case '/collection_events':
+            // Danh sách tất cả events
+            return MaterialPageRoute(
+              builder: (_) => const CollectionEventsList(),
+            );
+
+          case '/event_collection':
+            // Chi tiết event - cần eventId
+            final eventId = settings.arguments as String?;
+            if (eventId == null) {
+              return MaterialPageRoute(
+                builder: (_) => const Scaffold(
+                  body: Center(child: Text('Event ID không hợp lệ')),
+                ),
+              );
+            }
+            return MaterialPageRoute(
+              builder: (_) => CollectionEventDetailScreen(eventId: eventId),
+            );
+
+          case '/event_submit':
+            // Đăng bài tham gia event - cần eventId và keywords
+            final args = settings.arguments as Map<String, dynamic>?;
+            if (args == null ||
+                args['eventId'] == null ||
+                args['keywords'] == null) {
+              return MaterialPageRoute(
+                builder: (_) => const Scaffold(
+                  body: Center(child: Text('Thiếu thông tin event')),
+                ),
+              );
+            }
+            return MaterialPageRoute(
+              builder: (_) => EventSubmissionScreen(
+                eventId: args['eventId'] as String,
+                keywords: List<String>.from(args['keywords']),
+              ),
+            );
+
+          default:
+            // Route không tồn tại
+            return MaterialPageRoute(
+              builder: (_) => Scaffold(
+                appBar: AppBar(title: const Text('404')),
+                body: const Center(child: Text('Trang không tồn tại')),
+              ),
+            );
+        }
       },
     );
   }

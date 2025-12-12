@@ -6,7 +6,7 @@ const primary = Color(0xFF2E582B);
 class RankingScreen extends StatefulWidget {
   final List<Place> source;
 
-  const RankingScreen({Key? key, required this.source}) : super(key: key);
+  const RankingScreen({super.key, required this.source});
 
   @override
   State<RankingScreen> createState() => _RankingScreenState();
@@ -148,7 +148,7 @@ class _RankingScreenState extends State<RankingScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    ...checkinSorted.take(5).map((p) => _buildCheckinRow(p)),
+                    ...checkinSorted.take(3).map((p) => _buildCheckinRow(p)),
 
                     const SizedBox(height: 20),
 

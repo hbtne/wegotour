@@ -24,7 +24,7 @@ class PostItem extends StatelessWidget {
   final String author;
   final String avatar;
 
-  PostItem({
+  const PostItem({
     super.key,
     required this.postId,
     required this.groupId,
@@ -118,7 +118,7 @@ class PostItem extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      if (groupId != null && groupId.isNotEmpty)
+                      if (groupId.isNotEmpty)
                         GestureDetector(
                           onTap: () {
                             Navigator.push(
@@ -207,10 +207,12 @@ class PostItem extends StatelessWidget {
       child: Row(
         children: [
           const Icon(Icons.location_on, size: 16, color: Colors.grey),
-          const SizedBox(width: 5),
+          const SizedBox(width: 10),
           Text(
             location,
-            style: const TextStyle(color: Colors.grey),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.grey, overflow: TextOverflow.ellipsis),
           ),
         ],
       ),
@@ -254,7 +256,7 @@ class PostItem extends StatelessWidget {
 
   Widget _buildPlaceTags(List<Map<String, dynamic>> placeTags) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       child: Wrap(
         spacing: 6,
         children: placeTags.map((place) {
@@ -267,6 +269,7 @@ class PostItem extends StatelessWidget {
             label: Text(
               place['name'] ?? 'Địa điểm',
               style: const TextStyle(color: Colors.black87),
+              overflow: TextOverflow.ellipsis,
             ),
           );
         }).toList(),
