@@ -178,7 +178,7 @@ class _MyAppState extends State<MyApp> {
             return MaterialPageRoute(
                 builder: (_) => const RoleSelectionScreen());
           case '/profile':
-            return MaterialPageRoute(builder: (_) => const Profile(AuthService.getCurrentUserId()!));
+            return MaterialPageRoute(builder: (_) => Profile(profileId: AuthService.getCurrentUserId()!, ));
           case '/coupon':
             return MaterialPageRoute(builder: (_) => const CouponScreen());
           case '/forgot':
