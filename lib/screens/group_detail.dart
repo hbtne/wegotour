@@ -359,7 +359,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
 
   void _showInviteDialog(BuildContext context) async {
     final usersSnap = await _firestore.collection('users').get();
-    final allUsers = usersSnap.docs.map((d) => {'id': d.id, 'username': d['username']}).toList();
+    final allUsers = usersSnap.docs.map((d) => {'id': d.id, 'username': d['username'] ?? "Ẩn danh"}).toList();
     final selected = <Map<String, dynamic>>[];
 
     showDialog(

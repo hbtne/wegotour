@@ -1,6 +1,9 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class CallService {
@@ -14,6 +17,12 @@ class CallService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
+  StreamSubscription? _callerIceSub;
+  StreamSubscription? _receiverIceSub;
+  StreamSubscription? _answerSub;
+
+  bool _answered = false;
+
   // ---------------------------------------------------------------------------
   // INIT
   // ---------------------------------------------------------------------------
@@ -23,21 +32,66 @@ class CallService {
     await remoteRenderer.initialize();
   }
 
-  Future<void> _initPeer() async {
-    final config = {
+  Future<void> _ensurePeer() async {
+    print("before return: $_peer");
+    if (_peer != null) return;
+
+    _peer = await createPeerConnection({
       "iceServers": [
-        {"urls": "stun:stun.l.google.com:19302"},
-      ],
-      "sdpSemantics": "unified-plan",
-    };
+        {
+          "urls": [
+            "stun:stun.l.google.com:19302",
+          ]
+        },
+        {
+          "urls": [
+            "turn:openrelay.metered.ca:80",
+            "turn:openrelay.metered.ca:443",
+            "turn:openrelay.metered.ca:443?transport=tcp",
+          ],
+          "username": "openrelayproject",
+          "credential": "openrelayproject",
+        }
+      ]
+    });
 
-    _peer = await createPeerConnection(config);
+    print("After return: $_peer");
 
-    _peer!.onTrack = (event) {
+    // 🚨 BẮT BUỘC
+    await _peer!.addTransceiver(
+      kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
+      init: RTCRtpTransceiverInit(
+        direction: TransceiverDirection.SendRecv,
+      ),
+    );
+
+    await _peer!.addTransceiver(
+      kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
+      init: RTCRtpTransceiverInit(
+        direction: TransceiverDirection.SendRecv,
+      ),
+    );
+
+    _peer!.onTrack = (event) async {
       if (event.streams.isNotEmpty) {
-        _remoteStream = event.streams.first;
+        remoteRenderer.srcObject = event.streams.first;
+      } else {
+        _remoteStream ??= await createLocalMediaStream('remote');
+        _remoteStream!.addTrack(event.track);
         remoteRenderer.srcObject = _remoteStream;
       }
+    };
+
+    _peer!.onTrack = (event) {
+      print("🔥 onTrack:");
+      print("  kind: ${event.track.kind}");
+      print("  streams: ${event.streams.length}");
+    };
+    _peer!.onIceCandidate = (candidate) {
+      print("ICE candidate: ${candidate.candidate}");
+    };
+    _peer!.onIceConnectionState = (state) {
+      print("ICE state: $state");
     };
   }
 
@@ -46,50 +100,61 @@ class CallService {
   // ---------------------------------------------------------------------------
 
   Future<void> _openUserMedia({required bool audioOnly}) async {
-    final mic = await Permission.microphone.request();
-    final cam = audioOnly
-        ? PermissionStatus.granted
-        : await Permission.camera.request();
+    // 📱 Mobile permissions
+    if (!kIsWeb) {
+      final mic = await Permission.microphone.request();
+      final cam =
+      audioOnly ? PermissionStatus.granted : await Permission.camera.request();
 
-    if (!mic.isGranted || (!audioOnly && !cam.isGranted)) {
-      throw Exception("Camera / Microphone permission denied");
+      if (!mic.isGranted || (!audioOnly && !cam.isGranted)) {
+        throw Exception("Permission denied");
+      }
     }
 
-    final constraints = {
+    // 🌐 Web + Mobile dùng chung
+    _localStream = await navigator.mediaDevices.getUserMedia({
       "audio": true,
       "video": audioOnly
           ? false
           : {
         "facingMode": "user",
       },
-    };
+    });
 
-    _localStream = await navigator.mediaDevices.getUserMedia(constraints);
     localRenderer.srcObject = _localStream;
 
     for (var track in _localStream!.getTracks()) {
       await _peer!.addTrack(track, _localStream!);
     }
+
+    // 🔊 Android only
+    if (!kIsWeb && Platform.isAndroid) {
+      await Helper.setSpeakerphoneOn(true);
+    }
   }
 
-  /// 🔥 QUAN TRỌNG: TẮT CAMERA / MIC THỰC SỰ
   void _stopMedia() {
+    // ⛔ Stop LOCAL tracks (camera + mic)
     if (_localStream != null) {
-      for (var track in _localStream!.getTracks()) {
+      for (final track in _localStream!.getTracks()) {
         track.stop();
       }
-      _localStream = null;
+      _localStream!.dispose();
     }
 
+    // ⛔ Stop REMOTE tracks
     if (_remoteStream != null) {
-      for (var track in _remoteStream!.getTracks()) {
+      for (final track in _remoteStream!.getTracks()) {
         track.stop();
       }
-      _remoteStream = null;
+      _remoteStream!.dispose();
     }
 
     localRenderer.srcObject = null;
     remoteRenderer.srcObject = null;
+
+    _localStream = null;
+    _remoteStream = null;
   }
 
   // ---------------------------------------------------------------------------
@@ -100,7 +165,7 @@ class CallService {
       String callId, {
         required bool audioOnly,
       }) async {
-    await _initPeer();
+    await _ensurePeer();
     await _openUserMedia(audioOnly: audioOnly);
 
     _peer!.onIceCandidate = (c) {
@@ -109,50 +174,53 @@ class CallService {
             .collection("calls")
             .doc(callId)
             .collection("callerCandidates")
-            .add({
-          "candidate": c.candidate,
-          "sdpMid": c.sdpMid,
-          "sdpMLineIndex": c.sdpMLineIndex,
-        });
+            .add(c.toMap());
       }
     };
 
     final offer = await _peer!.createOffer();
     await _peer!.setLocalDescription(offer);
 
-    await _db.collection("calls").doc(callId).set({
-      "offer": {"sdp": offer.sdp, "type": offer.type},
-      "callerId": _currentUser?.uid,
-      "status": "ringing",
-      "mode": audioOnly ? "audio" : "video",
-      "createdAt": FieldValue.serverTimestamp(),
+    await _db.collection("calls").doc(callId).update({
+      "offer": offer.toMap(),
     });
 
-    _db.collection("calls").doc(callId).snapshots().listen((doc) async {
+    // 👂 Listen ANSWER
+    _answerSub = _db
+        .collection("calls")
+        .doc(callId)
+        .snapshots()
+        .listen((doc) async {
       final data = doc.data();
       if (data == null || data["answer"] == null) return;
+      if (_peer!.getRemoteDescription() != null) return;
 
-      if (_peer!.getRemoteDescription() == null) {
-        await _peer!.setRemoteDescription(
-          RTCSessionDescription(
-            data["answer"]["sdp"],
-            data["answer"]["type"],
-          ),
-        );
-      }
+      await _peer!.setRemoteDescription(
+        RTCSessionDescription(
+          data["answer"]["sdp"],
+          data["answer"]["type"],
+        ),
+      );
     });
 
-    _db
+    // 👂 Receiver ICE – CHỈ add ICE MỚI
+    _receiverIceSub = _db
         .collection("calls")
         .doc(callId)
         .collection("receiverCandidates")
         .snapshots()
         .listen((snapshot) {
-      for (var d in snapshot.docs) {
-        final c = d.data();
-        _peer?.addCandidate(
-          RTCIceCandidate(c["candidate"], c["sdpMid"], c["sdpMLineIndex"]),
-        );
+      for (var change in snapshot.docChanges) {
+        if (change.type == DocumentChangeType.added) {
+          final c = change.doc.data()!;
+          _peer?.addCandidate(
+            RTCIceCandidate(
+              c["candidate"],
+              c["sdpMid"],
+              c["sdpMLineIndex"],
+            ),
+          );
+        }
       }
     });
   }
@@ -165,14 +233,16 @@ class CallService {
       String callId, {
         required bool audioOnly,
       }) async {
-    await _initPeer();
+    if (_answered) return;
+    _answered = true;
+
+    await _ensurePeer();
     await _openUserMedia(audioOnly: audioOnly);
+    print("Answered: $_answered");
 
     final doc = await _db.collection("calls").doc(callId).get();
     final data = doc.data();
-    if (data == null || data["offer"] == null) {
-      throw Exception("Offer not found");
-    }
+    if (data == null || data["offer"] == null) return;
 
     await _peer!.setRemoteDescription(
       RTCSessionDescription(
@@ -187,11 +257,7 @@ class CallService {
             .collection("calls")
             .doc(callId)
             .collection("receiverCandidates")
-            .add({
-          "candidate": c.candidate,
-          "sdpMid": c.sdpMid,
-          "sdpMLineIndex": c.sdpMLineIndex,
-        });
+            .add(c.toMap());
       }
     };
 
@@ -199,40 +265,51 @@ class CallService {
     await _peer!.setLocalDescription(answer);
 
     await _db.collection("calls").doc(callId).update({
-      "answer": {"sdp": answer.sdp, "type": answer.type},
+      "answer": answer.toMap(),
       "status": "accepted",
     });
 
-    _db
+    // 👂 Caller ICE – CHỈ add ICE MỚI
+    _callerIceSub = _db
         .collection("calls")
         .doc(callId)
         .collection("callerCandidates")
         .snapshots()
         .listen((snapshot) {
-      for (var d in snapshot.docs) {
-        final c = d.data();
-        _peer?.addCandidate(
-          RTCIceCandidate(c["candidate"], c["sdpMid"], c["sdpMLineIndex"]),
-        );
+      for (var change in snapshot.docChanges) {
+        if (change.type == DocumentChangeType.added) {
+          final c = change.doc.data()!;
+          _peer?.addCandidate(
+            RTCIceCandidate(
+              c["candidate"],
+              c["sdpMid"],
+              c["sdpMLineIndex"],
+            ),
+          );
+        }
       }
     });
   }
 
   // ---------------------------------------------------------------------------
-  // END / CLEANUP
+  // END
   // ---------------------------------------------------------------------------
 
   Future<void> hangUp(String callId) async {
-    _stopMedia();
-    await _peer?.close();
-    _peer = null;
-
     await _db.collection("calls").doc(callId).update({
       "status": "ended",
+      "endedBy": _currentUser?.uid,
+      "endedAt": FieldValue.serverTimestamp(),
     });
+
+    await dispose();
   }
 
   Future<void> dispose() async {
+    await _callerIceSub?.cancel();
+    await _receiverIceSub?.cancel();
+    await _answerSub?.cancel();
+
     _stopMedia();
     await _peer?.close();
     _peer = null;

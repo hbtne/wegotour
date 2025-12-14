@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/call_service.dart';
-import '../services/group_call_service.dart';
 import 'group_call_screen.dart';
 import 'call_screen.dart';
 
@@ -20,8 +19,8 @@ class IncomingCallScreen extends StatefulWidget {
     required this.callType,
     required this.participants,
     this.onFinish,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   State<IncomingCallScreen> createState() => _IncomingCallScreenState();
@@ -30,18 +29,23 @@ class IncomingCallScreen extends StatefulWidget {
 class _IncomingCallScreenState extends State<IncomingCallScreen> {
   final _db = FirebaseFirestore.instance;
   bool _isProcessing = false;
+  final CallService callService = CallService();
 
   Future<void> _accept({required bool audioOnly}) async {
-    if (_isProcessing) return;
-    setState(() => _isProcessing = true);
+    // if (_isProcessing) return;
+    // setState(() => _isProcessing = true);
 
     try {
+      await callService.answerCall(
+        widget.callId,
+        audioOnly: audioOnly,
+      );
       await _db.collection('calls').doc(widget.callId).update({
         'status': 'accepted',
         'acceptedAt': FieldValue.serverTimestamp(),
         'acceptedMode': audioOnly ? 'audio' : 'video',
       });
-    } catch (e) {}
+    } catch (e) {print("Bug incomming: $e");}
 
     Navigator.of(context).pop();
     widget.onFinish?.call();
@@ -52,7 +56,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
       ));
     } else {
       Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => CallScreen(callId: widget.callId, audioOnly: audioOnly, isCaller: false,),
+        builder: (_) => CallScreen(callId: widget.callId, audioOnly: audioOnly, isCaller: false, isConnected: true,),
       ));
     }
   }
@@ -75,6 +79,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
   @override
   Widget build(BuildContext context) {
     final isGroup = widget.callType == 'group';
+    print("incomming screen opened");
     return WillPopScope(
       onWillPop: () async => false,
       child: Dialog(

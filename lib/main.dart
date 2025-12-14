@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:stour/screens/call_listener.dart';
 import 'package:stour/screens/main_screen.dart';
 import 'package:stour/services/auth_service.dart';
 import 'package:stour/util/const.dart';
@@ -105,12 +107,14 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   bool _isLoggedIn = false;
+  late final CallListener callListener;
 
   @override
   void initState() {
     super.initState();
     checkLoginStatus();
     refreshFCMToken();
+    _callListener();
   }
 
   Future<void> refreshFCMToken() async {
@@ -155,6 +159,15 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
+  void _callListener() {
+    FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null) {
+        print("Auth ready → start call listener");
+        callListener = CallListener();
+        callListener.start();
+      }
+    });
+  }
   @override
   Widget build(BuildContext context) {
     return MaterialApp(

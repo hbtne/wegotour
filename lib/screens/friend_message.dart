@@ -373,10 +373,12 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       "callerName": AuthService.getCurrentUserName(),
       "calleeId": widget.friendId,
       "calleeName": widget.friendName,
+      "participants": [
+        widget.friendId,
+      ],
       "status": "ringing",
-      "createdAt": FieldValue.serverTimestamp(),
-      "offer": null,
-      "answer": null,
+      "mode": audioOnly ? "audio" : "video",
+      "createdAt": FieldValue.serverTimestamp()
     });
 
     Navigator.push(

@@ -17,6 +17,7 @@ class CallListener {
   void start() {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
+    print("Call listener starting...");
 
     _sub = _db
         .collection('calls')
@@ -24,6 +25,7 @@ class CallListener {
         .where('participants', arrayContains: uid)
         .snapshots()
         .listen((query) {
+      print('LISTENER STILL ACTIVE');
       for (var doc in query.docs) {
         _handleIncoming(doc.id, doc.data() as Map<String, dynamic>);
       }
@@ -31,13 +33,14 @@ class CallListener {
   }
 
   void _handleIncoming(String callId, Map<String, dynamic> data) {
+    print(_shown);
     if (_shown.contains(callId)) return;
-    if (_dialogShown) return;             // ⬅ ADD: dialog đang mở → không mở tiếp
+    print(_dialogShown);
+    // if (_dialogShown) return;             // ⬅ ADD: dialog đang mở → không mở tiếp
 
     _shown.add(callId);
     _dialogShown = true;                  // ⬅ ADD
-
-    final callType = data['callType'] as String? ?? 'video';
+    final callType = data['mode'] as String? ?? 'audio';
     final callerName = data['callerName'] as String? ?? 'Người gọi';
     final callerAvatar = data['callerAvatar'] as String? ?? '';
 
@@ -50,11 +53,12 @@ class CallListener {
 
     // ⬅ FIX: context an toàn hơn
     final ctx = navigatorKey.currentContext;
+    print(ctx);
     if (ctx == null) {
       _dialogShown = false;
       return;
     }
-
+    print("opening incomming screen...");
     showDialog(
       context: ctx,
       barrierDismissible: false,
