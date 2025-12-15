@@ -36,10 +36,6 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
     // setState(() => _isProcessing = true);
 
     try {
-      await callService.answerCall(
-        widget.callId,
-        audioOnly: audioOnly,
-      );
       await _db.collection('calls').doc(widget.callId).update({
         'status': 'accepted',
         'acceptedAt': FieldValue.serverTimestamp(),
@@ -79,6 +75,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
   @override
   Widget build(BuildContext context) {
     final isGroup = widget.callType == 'group';
+    const Color primary = Color(0xFF4A5C3B);
     print("incomming screen opened");
     return WillPopScope(
       onWillPop: () async => false,
@@ -112,38 +109,12 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
                         children: [
                           FloatingActionButton(
                             heroTag: 'decline_${widget.callId}',
-                            backgroundColor: Colors.grey[800],
                             onPressed: _decline,
-                            child: Icon(Icons.call_end, color: Colors.white),
+                            child: Icon(Icons.call_end, color: Colors.red),
                           ),
-                          SizedBox(height: 8),
-                          Text('Từ chối', style: TextStyle(color: Colors.white)),
                         ],
                       ),
-                      Column(
-                        children: [
-                          FloatingActionButton(
-                            heroTag: 'accept_audio_${widget.callId}',
-                            backgroundColor: Colors.blueGrey,
-                            onPressed: () => _accept(audioOnly: true),
-                            child: Icon(Icons.call, color: Colors.white),
-                          ),
-                          SizedBox(height: 8),
-                          Text('Trả lời (Âm thanh)', style: TextStyle(color: Colors.white)),
-                        ],
-                      ),
-                      Column(
-                        children: [
-                          FloatingActionButton(
-                            heroTag: 'accept_video_${widget.callId}',
-                            backgroundColor: Colors.green,
-                            onPressed: () => _accept(audioOnly: false),
-                            child: Icon(Icons.videocam, color: Colors.white),
-                          ),
-                          SizedBox(height: 8),
-                          Text('Trả lời (Video)', style: TextStyle(color: Colors.white)),
-                        ],
-                      ),
+                      widget.callType == 'audio' ? _acceptByAudio() : _acceptByVideo()
                     ],
                   )
                 ],
@@ -154,4 +125,32 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
       ),
     );
   }
+
+  Widget _acceptByAudio() => Stack(
+    children: [
+      Column(
+        children: [
+          FloatingActionButton(
+            heroTag: 'accept_audio_${widget.callId}',
+            onPressed: () => _accept(audioOnly: true),
+            child: Icon(Icons.call, color: Colors.green),
+          ),
+        ],
+      ),
+    ],
+  );
+
+  Widget _acceptByVideo() => Stack(
+    children: [
+      Column(
+        children: [
+          FloatingActionButton(
+            heroTag: 'accept_video_${widget.callId}',
+            onPressed: () => _accept(audioOnly: false),
+            child: Icon(Icons.videocam, color: Colors.green),
+          ),
+        ],
+      ),
+    ],
+  );
 }

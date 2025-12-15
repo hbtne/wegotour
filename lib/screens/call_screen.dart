@@ -33,6 +33,16 @@ class _CallScreenState extends State<CallScreen> {
   @override
   void initState() {
     super.initState();
+    callService.onLocalStream = () {
+      if (!mounted) return;
+      setState(() {});
+    };
+
+    callService.onRemoteStream = () {
+      if (!mounted) return;
+      setState(() => widget.isConnected = true);
+    };
+
     _init();
   }
 
@@ -46,6 +56,10 @@ class _CallScreenState extends State<CallScreen> {
       );
       _listenCaller();
     } else {
+      await callService.answerCall(
+        widget.callId,
+        audioOnly: widget.audioOnly,
+      );
       _listenCallee();
     }
   }
@@ -55,12 +69,13 @@ class _CallScreenState extends State<CallScreen> {
         .collection('calls')
         .doc(widget.callId)
         .snapshots()
-        .listen((doc) {
+        .listen((doc) async {
       final data = doc.data();
       if (data == null) return;
 
       if (['declined', 'ended', 'missed'].contains(data['status'])) {
-        _closeAndExit();
+        callService.dispose();
+        await _closeAndExit();
       }
 
       if (data['status'] == 'accepted' && !widget.isConnected) {
@@ -79,6 +94,7 @@ class _CallScreenState extends State<CallScreen> {
       var data = doc.data();
       if (data == null) return;
       if (['ended', 'declined'].contains(data['status'])) {
+        await callService.hangUp(widget.callId);
         _closeAndExit();
       }
     });
@@ -86,14 +102,13 @@ class _CallScreenState extends State<CallScreen> {
 
   Future<void> _closeAndExit() async {
     await _callSub?.cancel();
-    await callService.dispose();
     if (mounted) Navigator.pop(context);
   }
 
   @override
   void dispose() {
     _callSub?.cancel();
-    callService.dispose();
+    callService.hangUp(widget.callId);
     super.dispose();
   }
 
@@ -124,7 +139,7 @@ class _CallScreenState extends State<CallScreen> {
         Icon(Icons.phone_in_talk_rounded,
             size: 80, color: Colors.white),
         SizedBox(height: 20),
-        Text('Đang gọi...',
+        Text('Cuộc gọi đang diễn ra...',
             style: TextStyle(color: Colors.white, fontSize: 22)),
       ],
     ),
@@ -158,10 +173,7 @@ class _CallScreenState extends State<CallScreen> {
         backgroundColor: Colors.red,
         child: const Icon(Icons.call_end, size: 32),
         onPressed: () async {
-          await FirebaseFirestore.instance
-              .collection('calls')
-              .doc(widget.callId)
-              .update({'status': 'ended'});
+          await callService.hangUp(widget.callId);
           _closeAndExit();
         },
       ),

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -22,10 +23,10 @@ class CallService {
   StreamSubscription? _answerSub;
 
   bool _answered = false;
+  VoidCallback? onRemoteStream;
+  VoidCallback? onLocalStream;
 
-  // ---------------------------------------------------------------------------
-  // INIT
-  // ---------------------------------------------------------------------------
+  /* -------------------- INIT -------------------- */
 
   Future<void> initRenderers() async {
     await localRenderer.initialize();
@@ -33,15 +34,12 @@ class CallService {
   }
 
   Future<void> _ensurePeer() async {
-    print("before return: $_peer");
     if (_peer != null) return;
 
     _peer = await createPeerConnection({
       "iceServers": [
         {
-          "urls": [
-            "stun:stun.l.google.com:19302",
-          ]
+          "urls": ["stun:stun.l.google.com:19302"]
         },
         {
           "urls": [
@@ -55,52 +53,24 @@ class CallService {
       ]
     });
 
-    print("After return: $_peer");
-
-    // 🚨 BẮT BUỘC
-    await _peer!.addTransceiver(
-      kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
-      init: RTCRtpTransceiverInit(
-        direction: TransceiverDirection.SendRecv,
-      ),
-    );
-
-    await _peer!.addTransceiver(
-      kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
-      init: RTCRtpTransceiverInit(
-        direction: TransceiverDirection.SendRecv,
-      ),
-    );
-
-    _peer!.onTrack = (event) async {
-      if (event.streams.isNotEmpty) {
-        remoteRenderer.srcObject = event.streams.first;
-      } else {
-        _remoteStream ??= await createLocalMediaStream('remote');
-        _remoteStream!.addTrack(event.track);
-        remoteRenderer.srcObject = _remoteStream;
-      }
-    };
-
-    _peer!.onTrack = (event) {
-      print("🔥 onTrack:");
-      print("  kind: ${event.track.kind}");
-      print("  streams: ${event.streams.length}");
-    };
-    _peer!.onIceCandidate = (candidate) {
-      print("ICE candidate: ${candidate.candidate}");
-    };
     _peer!.onIceConnectionState = (state) {
       print("ICE state: $state");
     };
+
+    _peer!.onTrack = (event) async {
+      print("🔥 onTrack: ${event.track.kind}");
+
+        _remoteStream ??= await createLocalMediaStream('remote');
+        _remoteStream!.addTrack(event.track);
+        remoteRenderer.srcObject = _remoteStream;
+      print("streams length: ${event.streams.length}");
+      onRemoteStream?.call();
+    };
   }
 
-  // ---------------------------------------------------------------------------
-  // MEDIA
-  // ---------------------------------------------------------------------------
+  /* -------------------- MEDIA -------------------- */
 
   Future<void> _openUserMedia({required bool audioOnly}) async {
-    // 📱 Mobile permissions
     if (!kIsWeb) {
       final mic = await Permission.microphone.request();
       final cam =
@@ -111,7 +81,6 @@ class CallService {
       }
     }
 
-    // 🌐 Web + Mobile dùng chung
     _localStream = await navigator.mediaDevices.getUserMedia({
       "audio": true,
       "video": audioOnly
@@ -122,33 +91,22 @@ class CallService {
     });
 
     localRenderer.srcObject = _localStream;
-
-    for (var track in _localStream!.getTracks()) {
+    onLocalStream?.call();
+    for (final track in _localStream!.getTracks()) {
       await _peer!.addTrack(track, _localStream!);
     }
 
-    // 🔊 Android only
     if (!kIsWeb && Platform.isAndroid) {
       await Helper.setSpeakerphoneOn(true);
     }
   }
 
   void _stopMedia() {
-    // ⛔ Stop LOCAL tracks (camera + mic)
-    if (_localStream != null) {
-      for (final track in _localStream!.getTracks()) {
-        track.stop();
-      }
-      _localStream!.dispose();
-    }
+    _localStream?.getTracks().forEach((t) => t.stop());
+    _remoteStream?.getTracks().forEach((t) => t.stop());
 
-    // ⛔ Stop REMOTE tracks
-    if (_remoteStream != null) {
-      for (final track in _remoteStream!.getTracks()) {
-        track.stop();
-      }
-      _remoteStream!.dispose();
-    }
+    _localStream?.dispose();
+    _remoteStream?.dispose();
 
     localRenderer.srcObject = null;
     remoteRenderer.srcObject = null;
@@ -157,14 +115,13 @@ class CallService {
     _remoteStream = null;
   }
 
-  // ---------------------------------------------------------------------------
-  // CALLER
-  // ---------------------------------------------------------------------------
+  /* -------------------- CALLER -------------------- */
 
   Future<void> startOutgoingCall(
       String callId, {
         required bool audioOnly,
       }) async {
+    await initRenderers();
     await _ensurePeer();
     await _openUserMedia(audioOnly: audioOnly);
 
@@ -185,7 +142,6 @@ class CallService {
       "offer": offer.toMap(),
     });
 
-    // 👂 Listen ANSWER
     _answerSub = _db
         .collection("calls")
         .doc(callId)
@@ -203,17 +159,16 @@ class CallService {
       );
     });
 
-    // 👂 Receiver ICE – CHỈ add ICE MỚI
     _receiverIceSub = _db
         .collection("calls")
         .doc(callId)
         .collection("receiverCandidates")
         .snapshots()
         .listen((snapshot) {
-      for (var change in snapshot.docChanges) {
+      for (final change in snapshot.docChanges) {
         if (change.type == DocumentChangeType.added) {
           final c = change.doc.data()!;
-          _peer?.addCandidate(
+          _peer!.addCandidate(
             RTCIceCandidate(
               c["candidate"],
               c["sdpMid"],
@@ -225,9 +180,7 @@ class CallService {
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // RECEIVER
-  // ---------------------------------------------------------------------------
+  /* -------------------- RECEIVER -------------------- */
 
   Future<void> answerCall(
       String callId, {
@@ -236,9 +189,8 @@ class CallService {
     if (_answered) return;
     _answered = true;
 
+    await initRenderers();
     await _ensurePeer();
-    await _openUserMedia(audioOnly: audioOnly);
-    print("Answered: $_answered");
 
     final doc = await _db.collection("calls").doc(callId).get();
     final data = doc.data();
@@ -250,6 +202,8 @@ class CallService {
         data["offer"]["type"],
       ),
     );
+
+    await _openUserMedia(audioOnly: audioOnly);
 
     _peer!.onIceCandidate = (c) {
       if (c != null) {
@@ -269,17 +223,16 @@ class CallService {
       "status": "accepted",
     });
 
-    // 👂 Caller ICE – CHỈ add ICE MỚI
     _callerIceSub = _db
         .collection("calls")
         .doc(callId)
         .collection("callerCandidates")
         .snapshots()
         .listen((snapshot) {
-      for (var change in snapshot.docChanges) {
+      for (final change in snapshot.docChanges) {
         if (change.type == DocumentChangeType.added) {
           final c = change.doc.data()!;
-          _peer?.addCandidate(
+          _peer!.addCandidate(
             RTCIceCandidate(
               c["candidate"],
               c["sdpMid"],
@@ -291,9 +244,7 @@ class CallService {
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // END
-  // ---------------------------------------------------------------------------
+  /* -------------------- END -------------------- */
 
   Future<void> hangUp(String callId) async {
     await _db.collection("calls").doc(callId).update({

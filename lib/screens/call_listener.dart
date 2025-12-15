@@ -43,7 +43,6 @@ class CallListener {
     final callType = data['mode'] as String? ?? 'audio';
     final callerName = data['callerName'] as String? ?? 'Người gọi';
     final callerAvatar = data['callerAvatar'] as String? ?? '';
-
     // ⬅ FIX: participants cast an toàn
     final participants = (data['participants'] as List<dynamic>? ?? [])
         .map((e) => e.toString())
