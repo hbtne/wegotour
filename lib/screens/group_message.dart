@@ -13,6 +13,7 @@ import 'package:stour/screens/group_call_screen.dart';
 import 'package:stour/services/cloudinary_service.dart';
 
 import '../assets/icons/call_video_svg.dart';
+import '../services/auth_service.dart';
 
 class GroupChatScreen extends StatefulWidget {
   final String groupId;
@@ -266,21 +267,27 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       children: [
         Column(
           children: [
-            Text(
-              name,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                color: Colors.black,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Container(
+            // Text(
+            //   name,
+            //   style: const TextStyle(
+            //     fontWeight: FontWeight.w600,
+            //     fontSize: 13,
+            //     color: Colors.black,
+            //   ),
+            // ),
+            // const SizedBox(height: 4),
+            SizedBox(
               width: 40,
               height: 40,
-              decoration: const BoxDecoration(
-                color: Color(0xFF97A989),
-                shape: BoxShape.circle,
+              // decoration: const BoxDecoration(
+              //   color: Color(0xFF97A989),
+              //   shape: BoxShape.circle,
+              // ),
+              child: CircleAvatar(
+                backgroundColor: Colors.transparent,
+                backgroundImage: imageUrl != ""
+                    ? NetworkImage(imageUrl)
+                    : const AssetImage('assets/default_avatar.png') as ImageProvider,
               ),
             ),
           ],
@@ -345,6 +352,36 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       ],
     );
   }
+  void _onCall(bool audioOnly) async {
+    final callDoc = FirebaseFirestore.instance.collection('calls').doc();
+    final callId = callDoc.id;
+    final groupDoc = await FirebaseFirestore.instance.collection('groups').doc(widget.groupId).get();
+    final groupData = groupDoc.data();
+
+    await callDoc.set({
+      "callerId": AuthService.getCurrentUserId(),
+      "callerName": AuthService.getCurrentUserName(),
+      // "calleeId": widget.friendId,
+      // "calleeName": widget.friendName,
+      "participants": [
+        groupData?['member'] as List<String>
+      ],
+      "status": "ringing",
+      "mode": audioOnly ? "audio" : "video",
+      "createdAt": FieldValue.serverTimestamp()
+    });
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => GroupCallScreen(
+          roomId: callId,
+          audioOnly: audioOnly,
+          isCaller: true,
+        ),
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -390,17 +427,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   ),
                   const SizedBox(width: 48),
                   IconButton(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context)=> GroupCallScreen(roomId: '',))),
+                    onPressed: () => _onCall(true),
                     icon: Icon(Icons.phone, color: primary),
                   ),
                   SizedBox(width: 10,),
                   IconButton(
-                      onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => GroupCallScreen(roomId: ''))),
-                      icon: SvgPicture.string(callVideoSVG))
+                      onPressed: () => _onCall(false),
+                      icon: Icon(Icons.videocam_outlined, color: primary,))
                 ],
               ),
             ),

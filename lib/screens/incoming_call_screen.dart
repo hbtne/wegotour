@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/call_service.dart';
-import 'group_call_screen.dart';
 import 'call_screen.dart';
+import 'group_call_screen.dart';
 
 class IncomingCallScreen extends StatefulWidget {
   final String callId;
@@ -48,7 +48,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
 
     if (widget.callType == 'group') {
       Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => GroupCallScreen(roomId: widget.callId, audioOnly: audioOnly),
+        builder: (_) => GroupCallScreen(roomId: widget.callId, audioOnly: audioOnly, isCaller: false, isConnected: true,),
       ));
     } else {
       Navigator.of(context).push(MaterialPageRoute(

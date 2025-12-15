@@ -1,12 +1,23 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 import '../services/group_call_service.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 class GroupCallScreen extends StatefulWidget {
   final String roomId;
   final bool audioOnly;
+  final bool isCaller;
+  bool isConnected;
 
-  const GroupCallScreen({required this.roomId, this.audioOnly = false, super.key});
+  GroupCallScreen({
+    required this.roomId,
+    this.audioOnly = false,
+    required this.isCaller,
+    this.isConnected = false,
+    super.key});
 
   @override
   State<GroupCallScreen> createState() => _GroupCallScreenState();

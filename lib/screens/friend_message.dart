@@ -274,28 +274,34 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-      //   Column(
-      //     children: [
-      //       Text(
-      //         name,
-      //         style: const TextStyle(
-      //           fontWeight: FontWeight.w600,
-      //           fontSize: 13,
-      //           color: Colors.black,
-      //         ),
-      //       ),
-      //       const SizedBox(height: 4),
-      //       Container(
-      //         width: 40,
-      //         height: 40,
-      //         decoration: const BoxDecoration(
-      //           color: Color(0xFF97A989),
-      //           shape: BoxShape.circle,
-      //         ),
-      //       ),
-      //     ],
-      //   ),
-      //   const SizedBox(width: 12),
+        Column(
+          children: [
+            // Text(
+            //   name,
+            //   style: const TextStyle(
+            //     fontWeight: FontWeight.w600,
+            //     fontSize: 13,
+            //     color: Colors.black,
+            //   ),
+            // ),
+            // const SizedBox(height: 4),
+            SizedBox(
+              width: 40,
+              height: 40,
+              // decoration: const BoxDecoration(
+              //   color: Color(0xFF97A989),
+              //   shape: BoxShape.circle,
+              // ),
+              child: CircleAvatar(
+                backgroundColor: Colors.transparent,
+                backgroundImage: imageUrl != ""
+                    ? NetworkImage(imageUrl)
+                    : const AssetImage('assets/default_avatar.png') as ImageProvider,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(width: 12),
         Flexible(
           child: Container(
             padding: const EdgeInsets.all(14),
@@ -311,12 +317,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
                     padding: const EdgeInsets.only(bottom: 8.0),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: CircleAvatar(
-                        backgroundColor: Colors.transparent,
-                        backgroundImage: imageUrl != ""
-                            ? NetworkImage(imageUrl)
-                            : const AssetImage('assets/default_avatar.png') as ImageProvider,
-                      ),
+                      child: Image.network(imageUrl, fit: BoxFit.cover),
                     ),
                   ),
                 if (msg.isNotEmpty) Text(msg, style: const TextStyle(fontSize: 16)),

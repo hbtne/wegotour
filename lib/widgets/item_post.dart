@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:stour/screens/profile.dart';
 
 import '../screens/addPost_screen.dart';
 import '../screens/comment_screen.dart';
@@ -94,13 +95,25 @@ class PostItem extends StatelessWidget {
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: Colors.grey.shade300,
-                backgroundImage: avatar.isNotEmpty
-                    ? NetworkImage(avatar)
-                    : const AssetImage('assets/default_avatar.png')
-                as ImageProvider,
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => Profile(
+                        profileId: authorId,
+                      ),
+                    ),
+                  );
+                },
+                child: CircleAvatar(
+                  radius: 24,
+                  backgroundColor: Colors.grey.shade300,
+                  backgroundImage: avatar.isNotEmpty
+                      ? NetworkImage(avatar)
+                      : const AssetImage('assets/default_avatar.png')
+                  as ImageProvider,
+                ),
               ),
               const SizedBox(width: 10),
 
@@ -109,12 +122,24 @@ class PostItem extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        author,
-                        style: const TextStyle(
-                          color: Color(0xFF2E5E2A),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => Profile(
+                                profileId: authorId,
+                              ),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          author,
+                          style: const TextStyle(
+                            color: Color(0xFF2E5E2A),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 4),

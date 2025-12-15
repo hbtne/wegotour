@@ -47,10 +47,10 @@ class _CallScreenState extends State<CallScreen> {
   }
 
   Future<void> _init() async {
-    await callService.initRenderers();
+    await callService.initialize();
 
     if (widget.isCaller) {
-      await callService.startOutgoingCall(
+      await callService.startCall(
         widget.callId,
         audioOnly: widget.audioOnly,
       );
@@ -114,6 +114,8 @@ class _CallScreenState extends State<CallScreen> {
 
   @override
   Widget build(BuildContext context) {
+    print("🎥 Remote srcObject tracks: "
+        "${callService.remoteRenderer.srcObject?.getVideoTracks().length}");
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -146,8 +148,15 @@ class _CallScreenState extends State<CallScreen> {
   );
 
   Widget _videoUI() => Stack(
+    fit: StackFit.expand,
     children: [
-      RTCVideoView(callService.remoteRenderer),
+      RTCVideoView(
+        callService.remoteRenderer,
+        mirror: false,
+        objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+        filterQuality: FilterQuality.none,
+      )
+      ,
       Positioned(
         right: 16,
         top: 40,

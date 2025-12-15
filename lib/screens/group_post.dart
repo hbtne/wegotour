@@ -177,8 +177,8 @@ class _GroupPostScreenState extends State<GroupPostScreen> {
 
                               return PostItem(
                                 postId: post.id,
-                                groupId: data['groupId'] ?? '',
-                                groupName: data['groupName'] ?? '',
+                                groupId: widget.groupId,
+                                groupName: widget.groupName,
                                 content: data['content'] ?? '',
                                 imageUrls: List<String>.from(data['imageUrls'] ?? []),
                                 timeAgo: data['createdAt'] as Timestamp,
@@ -234,7 +234,7 @@ class _GroupPostScreenState extends State<GroupPostScreen> {
               MaterialPageRoute(
                 builder: (context) => GroupChatScreen(
                   groupId: groupId,
-                  groupName: groupName,
+                  groupName: groupName
                 ),
               ),
             );

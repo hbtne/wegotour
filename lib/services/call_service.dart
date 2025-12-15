@@ -22,25 +22,29 @@ class CallService {
   StreamSubscription? _receiverIceSub;
   StreamSubscription? _answerSub;
 
+  bool _initialized = false;
   bool _answered = false;
-  VoidCallback? onRemoteStream;
+
   VoidCallback? onLocalStream;
+  VoidCallback? onRemoteStream;
 
-  /* -------------------- INIT -------------------- */
+  Future<void> initialize() async {
+    if (_initialized) return;
 
-  Future<void> initRenderers() async {
     await localRenderer.initialize();
     await remoteRenderer.initialize();
+
+    await _createPeer();
+
+    _initialized = true;
   }
 
-  Future<void> _ensurePeer() async {
+  Future<void> _createPeer() async {
     if (_peer != null) return;
 
     _peer = await createPeerConnection({
       "iceServers": [
-        {
-          "urls": ["stun:stun.l.google.com:19302"]
-        },
+        {"urls": ["stun:stun.l.google.com:19302"]},
         {
           "urls": [
             "turn:openrelay.metered.ca:80",
@@ -54,51 +58,118 @@ class CallService {
     });
 
     _peer!.onIceConnectionState = (state) {
-      print("ICE state: $state");
+      debugPrint("❄️ ICE: $state");
     };
 
-    _peer!.onTrack = (event) async {
-      print("🔥 onTrack: ${event.track.kind}");
+    _peer!.onConnectionState = (state) async {
+      if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+        final senders = await _peer!.getSenders();
 
-        _remoteStream ??= await createLocalMediaStream('remote');
-        _remoteStream!.addTrack(event.track);
-        remoteRenderer.srcObject = _remoteStream;
-      print("streams length: ${event.streams.length}");
-      onRemoteStream?.call();
+        for (final sender in senders) {
+          if (sender.track?.kind == 'audio') {
+            sender.track!.enabled = true;
+            debugPrint("🎙 Audio sender enabled");
+          }
+        }
+      }
+      debugPrint("📶 Connection: $state");
+    };
+
+    // ===== REMOTE TRACK HANDLING (Android-safe) =====
+    _peer!.onTrack = (event) async {
+      final kind = event.track.kind;
+      debugPrint("🎯 onTrack: $kind");
+
+      if (kind == 'audio') {
+        // 🔊 AUDIO: chỉ cần enable
+        event.track.enabled = true;
+        debugPrint("🔊 Remote audio enabled");
+      }
+
+      if (kind == 'video') {
+        // 🎥 VIDEO: phải attach renderer
+        if (event.streams.isNotEmpty) {
+          remoteRenderer.srcObject = event.streams.first;
+        } else {
+          _remoteStream ??= await createLocalMediaStream('remote');
+          if (!_remoteStream!.getVideoTracks().contains(event.track)) {
+            _remoteStream!.addTrack(event.track);
+          }
+          remoteRenderer.srcObject = _remoteStream;
+        }
+
+        remoteRenderer.muted = false;
+        onRemoteStream?.call();
+      }
     };
   }
 
-  /* -------------------- MEDIA -------------------- */
+  // =================== MEDIA ===================
 
   Future<void> _openUserMedia({required bool audioOnly}) async {
     if (!kIsWeb) {
       final mic = await Permission.microphone.request();
-      final cam =
-      audioOnly ? PermissionStatus.granted : await Permission.camera.request();
+      final cam = audioOnly
+          ? PermissionStatus.granted
+          : await Permission.camera.request();
 
       if (!mic.isGranted || (!audioOnly && !cam.isGranted)) {
-        throw Exception("Permission denied");
+        throw Exception("Media permission denied");
       }
     }
 
     _localStream = await navigator.mediaDevices.getUserMedia({
-      "audio": true,
-      "video": audioOnly
+      'audio': {
+        'mandatory': {
+          'echoCancellation': true,
+          'noiseSuppression': true,
+          'autoGainControl': true,
+        },
+        'optional': [],
+      },
+      'video': audioOnly
           ? false
           : {
-        "facingMode": "user",
+        'facingMode': 'user',
       },
     });
 
+    final audioTracks = _localStream!.getAudioTracks();
+    debugPrint("🎤 local audio tracks count: ${audioTracks.length}");
+
+    for (final t in audioTracks) {
+      debugPrint("🎤 local audio enabled=${t.enabled}, id=${t.id}");
+    }
+
+
+    for (final t in _localStream!.getVideoTracks()) {
+      debugPrint("🎥 local video track: enabled=${t.enabled}, id=${t.id}");
+    }
+
     localRenderer.srcObject = _localStream;
     onLocalStream?.call();
+
     for (final track in _localStream!.getTracks()) {
       await _peer!.addTrack(track, _localStream!);
     }
 
     if (!kIsWeb && Platform.isAndroid) {
       await Helper.setSpeakerphoneOn(true);
+      final audioTracks = _localStream?.getAudioTracks() ?? [];
+
+      if (audioTracks.isNotEmpty) {
+        await Helper.setMicrophoneMute(false, audioTracks.first);
+      }
+
+      for (final t in audioTracks) {
+        debugPrint("🎤 local audio track: enabled=${t.enabled}, id=${t.id}");
+      }
+
     }
+
+    _localStream!
+        .getAudioTracks()
+        .forEach((t) => t.enabled = true);
   }
 
   void _stopMedia() {
@@ -115,14 +186,13 @@ class CallService {
     _remoteStream = null;
   }
 
-  /* -------------------- CALLER -------------------- */
+  // =================== CALLER ===================
 
-  Future<void> startOutgoingCall(
+  Future<void> startCall(
       String callId, {
         required bool audioOnly,
       }) async {
-    await initRenderers();
-    await _ensurePeer();
+    await initialize();
     await _openUserMedia(audioOnly: audioOnly);
 
     _peer!.onIceCandidate = (c) {
@@ -138,8 +208,16 @@ class CallService {
     final offer = await _peer!.createOffer();
     await _peer!.setLocalDescription(offer);
 
-    await _db.collection("calls").doc(callId).update({
+    final senders = await _peer!.getSenders();
+    for (final s in senders) {
+      debugPrint("📤 sender: ${s.track?.kind}");
+    }
+
+    await _db.collection("calls").doc(callId).set({
       "offer": offer.toMap(),
+      "status": "calling",
+      "callerId": _currentUser?.uid,
+      "createdAt": FieldValue.serverTimestamp(),
     });
 
     _answerSub = _db
@@ -180,7 +258,7 @@ class CallService {
     });
   }
 
-  /* -------------------- RECEIVER -------------------- */
+  // =================== RECEIVER ===================
 
   Future<void> answerCall(
       String callId, {
@@ -189,12 +267,12 @@ class CallService {
     if (_answered) return;
     _answered = true;
 
-    await initRenderers();
-    await _ensurePeer();
+    await initialize();
 
     final doc = await _db.collection("calls").doc(callId).get();
     final data = doc.data();
     if (data == null || data["offer"] == null) return;
+    await _openUserMedia(audioOnly: audioOnly);
 
     await _peer!.setRemoteDescription(
       RTCSessionDescription(
@@ -202,8 +280,6 @@ class CallService {
         data["offer"]["type"],
       ),
     );
-
-    await _openUserMedia(audioOnly: audioOnly);
 
     _peer!.onIceCandidate = (c) {
       if (c != null) {
@@ -217,6 +293,11 @@ class CallService {
 
     final answer = await _peer!.createAnswer();
     await _peer!.setLocalDescription(answer);
+
+    final receivers = await _peer!.getReceivers();
+    for (final r in receivers) {
+      debugPrint("📥 receiver: ${r.track?.kind}");
+    }
 
     await _db.collection("calls").doc(callId).update({
       "answer": answer.toMap(),
@@ -244,7 +325,7 @@ class CallService {
     });
   }
 
-  /* -------------------- END -------------------- */
+  // =================== END ===================
 
   Future<void> hangUp(String callId) async {
     await _db.collection("calls").doc(callId).update({
@@ -267,5 +348,8 @@ class CallService {
 
     await localRenderer.dispose();
     await remoteRenderer.dispose();
+
+    _initialized = false;
+    _answered = false;
   }
 }

@@ -114,7 +114,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
           IconButton(
             icon: SvgPicture.string(chatSVG, width: 30, height: 30),
             onPressed: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => GroupChatScreen(groupId: widget.groupId, groupName: widget.groupName))),
+                MaterialPageRoute(builder: (_) => GroupChatScreen(groupId: widget.groupId, groupName: widget.groupName,))),
           ),
         ],
       ),

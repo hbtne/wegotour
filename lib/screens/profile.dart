@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_neumorphic_plus/flutter_neumorphic.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:stour/assets/icons/person_check_svg.dart';
+import 'package:stour/screens/friend_message.dart';
 
 import 'package:stour/screens/profile_post.dart';
 import 'package:stour/screens/saved_tour.dart';
@@ -574,7 +575,7 @@ class _ProfileState extends State<Profile> {
     }
     return Column(
       children: [
-         Row(
+         Column(
            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
@@ -586,19 +587,8 @@ class _ProfileState extends State<Profile> {
                 ),
               ),
               if (AuthService.getCurrentUserId() != widget.profileId) ...[
-                const SizedBox(width: 8),
-
-                IconButton(
-                  icon:
-                    _profileData!['friends'].contains(widget.profileId)
-                    ? Icon(
-                        Icons.person_add,
-                        color: Colors.black87,
-                      )
-                    : SvgPicture.string(personCheckSVG),
-                  onPressed: _toggleFriend,
-                ),
-              ],
+                _friendActivity()
+              ]
             ]
          ),
         const SizedBox(height: 8),
@@ -632,6 +622,37 @@ class _ProfileState extends State<Profile> {
 
   Widget profileActivity() {
     return const SizedBox(height: 16);
+  }
+
+  Widget _friendActivity() {
+    return Stack(
+      children: [
+          const SizedBox(width: 8),
+
+          IconButton(
+            icon:
+            _profileData!['friends'].contains(widget.profileId)
+                ? Icon(
+              Icons.person_add,
+              color: Colors.black87,
+            )
+                : SvgPicture.string(personCheckSVG),
+            onPressed: _toggleFriend,
+          ),
+        SizedBox(width: 5,),
+        _buildActionButton("Gửi tin nhắn", onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PersonalChatScreen(friendId: widget.profileId, friendName: _profileData!['username']),
+            ),
+          );
+          if (result == true) {
+            _fetchProfile();
+          }
+        }),
+      ],
+    );
   }
 }
 
