@@ -32,8 +32,6 @@ class CallService {
   VoidCallback? onLocalStream;
   VoidCallback? onRemoteStream;
 
-  final List<RTCIceCandidate> _pendingCandidates = [];
-
   Future<void> initialize() async {
     if (_initialized) return;
 
@@ -63,55 +61,35 @@ class CallService {
       'iceCandidatePoolSize': 10,
     });
 
-    // KHÔNG dùng setAudioMode nữa – phiên bản flutter_webrtc hiện tại không có
-
     _peer!.onIceConnectionState = (state) {
       debugPrint("❄️ ICE: $state");
     };
 
-    _peer!.onConnectionState = (state) async {
-      debugPrint("📶 Connection: $state");
-      if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
-        final senders = await _peer!.getSenders();
-
-        for (final sender in senders) {
-          debugPrint("📤 sender after connected: ${sender.track?.kind}");
-          if (sender.track?.kind == 'audio') {
-            sender.track!.enabled = true;
-            debugPrint("🎙 Audio sender enabled");
-          }
-        }
-      }
-    };
-
-    // REMOTE TRACK
     _peer!.onTrack = (event) async {
       final kind = event.track.kind;
-      debugPrint("🎯 onTrack: $kind");
+      debugPrint("🎯 onTrack: $kind, streams: ${event.streams.length}");
+
+      MediaStream? stream;
 
       if (event.streams.isNotEmpty) {
-        remoteRenderer.srcObject = event.streams.first;
-      } else{
+        stream = event.streams.first;
+      } else {
         _remoteStream ??= await createLocalMediaStream('remote');
+        _remoteStream!.addTrack(event.track);
+        stream = _remoteStream;
       }
+
       if (kind == 'audio') {
-        if (!_remoteStream!.getAudioTracks().contains(event.track)) {
-          _remoteStream!.addTrack(event.track);
-        }
-        remoteRenderer.srcObject = _remoteStream;
-        debugPrint("🔊 Remote audio track added: id=${event.track.id}");
+        debugPrint("🔊 Remote audio track added: ${event.track.id}");
+        onRemoteStream?.call();
+        return;
       }
 
       if (kind == 'video') {
-        if (!_remoteStream!.getVideoTracks().contains(event.track)) {
-          _remoteStream!.addTrack(event.track);
-        }
-        remoteRenderer.srcObject = _remoteStream;
-        debugPrint("🎥 Remote video tracks count: "
-            "${remoteRenderer.srcObject?.getVideoTracks().length}");
+        debugPrint("🎥 Remote video tracks: ${stream?.getVideoTracks().length}");
+        remoteRenderer.srcObject = stream;
+        onRemoteStream?.call();
       }
-      remoteRenderer.muted = false;
-      onRemoteStream?.call();
     };
   }
 
@@ -150,7 +128,6 @@ class CallService {
     localRenderer.srcObject = _localStream;
     onLocalStream?.call();
 
-    // Không dùng transceiver nữa – chỉ dùng addTrack
     for (final track in _localStream!.getTracks()) {
       await _peer!.addTrack(track, _localStream!);
     }

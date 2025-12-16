@@ -394,6 +394,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
           callId: callId,
           audioOnly: audioOnly,
           isCaller: true,
+          calleeName: widget.friendName,
         ),
       ),
     );

@@ -52,7 +52,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
       ));
     } else {
       Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => CallScreen(callId: widget.callId, audioOnly: audioOnly, isCaller: false, isConnected: true,),
+        builder: (_) => CallScreen(callId: widget.callId, audioOnly: audioOnly, isCaller: false, isConnected: true, calleeName: widget.callerName,),
       ));
     }
   }

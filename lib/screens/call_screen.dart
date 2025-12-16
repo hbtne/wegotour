@@ -11,6 +11,7 @@ class CallScreen extends StatefulWidget {
   final String callId;
   final bool audioOnly;
   final bool isCaller;
+  final String calleeName;
   bool isConnected;
 
   CallScreen({
@@ -18,7 +19,7 @@ class CallScreen extends StatefulWidget {
     required this.audioOnly,
     required this.isCaller,
     this.isConnected = false,
-    super.key,
+    super.key, required this.calleeName,
   });
 
   @override
@@ -41,7 +42,7 @@ class _CallScreenState extends State<CallScreen> {
 
     callService.onRemoteStream = () {
       if (!mounted) return;
-      callService.remoteRenderer.muted = false;
+      // callService.remoteRenderer.muted = false;
       setState(() => widget.isConnected = true);
     };
 
@@ -145,7 +146,7 @@ class _CallScreenState extends State<CallScreen> {
         const Icon(Icons.phone_in_talk_rounded,
             size: 80, color: Colors.white),
         const SizedBox(height: 20),
-        Text(AuthService.getCurrentUserName()!,
+        Text(widget.calleeName,
             style: const TextStyle(color: Colors.white, fontSize: 22)),
       ],
     ),
