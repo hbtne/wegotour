@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -18,6 +19,9 @@ class CallService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
+  final username = dotenv.env['WEBRTC_USERNAME'];
+  final password = dotenv.env['WEBRTC_PASSWORD'];
+
   StreamSubscription? _callerIceSub;
   StreamSubscription? _receiverIceSub;
   StreamSubscription? _answerSub;
@@ -27,6 +31,8 @@ class CallService {
 
   VoidCallback? onLocalStream;
   VoidCallback? onRemoteStream;
+
+  final List<RTCIceCandidate> _pendingCandidates = [];
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -41,66 +47,71 @@ class CallService {
 
   Future<void> _createPeer() async {
     if (_peer != null) return;
-
     _peer = await createPeerConnection({
-      "iceServers": [
-        {"urls": ["stun:stun.l.google.com:19302"]},
+      'iceServers': [
         {
-          "urls": [
-            "turn:openrelay.metered.ca:80",
-            "turn:openrelay.metered.ca:443",
-            "turn:openrelay.metered.ca:443?transport=tcp",
+          'urls': [
+            'stun:global.stun.metered.ca:3478',
+            'turn:global.relay.metered.ca:80',
+            'turn:global.relay.metered.ca:443',
+            'turns:global.relay.metered.ca:443'
           ],
-          "username": "openrelayproject",
-          "credential": "openrelayproject",
+          'username': '$username',
+          'credential': '$password',
         }
-      ]
+      ],
+      'iceCandidatePoolSize': 10,
     });
+
+    // KHÔNG dùng setAudioMode nữa – phiên bản flutter_webrtc hiện tại không có
 
     _peer!.onIceConnectionState = (state) {
       debugPrint("❄️ ICE: $state");
     };
 
     _peer!.onConnectionState = (state) async {
+      debugPrint("📶 Connection: $state");
       if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
         final senders = await _peer!.getSenders();
 
         for (final sender in senders) {
+          debugPrint("📤 sender after connected: ${sender.track?.kind}");
           if (sender.track?.kind == 'audio') {
             sender.track!.enabled = true;
             debugPrint("🎙 Audio sender enabled");
           }
         }
       }
-      debugPrint("📶 Connection: $state");
     };
 
-    // ===== REMOTE TRACK HANDLING (Android-safe) =====
+    // REMOTE TRACK
     _peer!.onTrack = (event) async {
       final kind = event.track.kind;
       debugPrint("🎯 onTrack: $kind");
 
+      if (event.streams.isNotEmpty) {
+        remoteRenderer.srcObject = event.streams.first;
+      } else{
+        _remoteStream ??= await createLocalMediaStream('remote');
+      }
       if (kind == 'audio') {
-        // 🔊 AUDIO: chỉ cần enable
-        event.track.enabled = true;
-        debugPrint("🔊 Remote audio enabled");
+        if (!_remoteStream!.getAudioTracks().contains(event.track)) {
+          _remoteStream!.addTrack(event.track);
+        }
+        remoteRenderer.srcObject = _remoteStream;
+        debugPrint("🔊 Remote audio track added: id=${event.track.id}");
       }
 
       if (kind == 'video') {
-        // 🎥 VIDEO: phải attach renderer
-        if (event.streams.isNotEmpty) {
-          remoteRenderer.srcObject = event.streams.first;
-        } else {
-          _remoteStream ??= await createLocalMediaStream('remote');
-          if (!_remoteStream!.getVideoTracks().contains(event.track)) {
-            _remoteStream!.addTrack(event.track);
-          }
-          remoteRenderer.srcObject = _remoteStream;
+        if (!_remoteStream!.getVideoTracks().contains(event.track)) {
+          _remoteStream!.addTrack(event.track);
         }
-
-        remoteRenderer.muted = false;
-        onRemoteStream?.call();
+        remoteRenderer.srcObject = _remoteStream;
+        debugPrint("🎥 Remote video tracks count: "
+            "${remoteRenderer.srcObject?.getVideoTracks().length}");
       }
+      remoteRenderer.muted = false;
+      onRemoteStream?.call();
     };
   }
 
@@ -120,12 +131,9 @@ class CallService {
 
     _localStream = await navigator.mediaDevices.getUserMedia({
       'audio': {
-        'mandatory': {
-          'echoCancellation': true,
-          'noiseSuppression': true,
-          'autoGainControl': true,
-        },
-        'optional': [],
+        'echoCancellation': true,
+        'noiseSuppression': true,
+        'autoGainControl': true,
       },
       'video': audioOnly
           ? false
@@ -135,27 +143,20 @@ class CallService {
     });
 
     final audioTracks = _localStream!.getAudioTracks();
+    final videoTracks = _localStream!.getVideoTracks();
     debugPrint("🎤 local audio tracks count: ${audioTracks.length}");
-
-    for (final t in audioTracks) {
-      debugPrint("🎤 local audio enabled=${t.enabled}, id=${t.id}");
-    }
-
-
-    for (final t in _localStream!.getVideoTracks()) {
-      debugPrint("🎥 local video track: enabled=${t.enabled}, id=${t.id}");
-    }
+    debugPrint("🎥 local video tracks count: ${videoTracks.length}");
 
     localRenderer.srcObject = _localStream;
     onLocalStream?.call();
 
+    // Không dùng transceiver nữa – chỉ dùng addTrack
     for (final track in _localStream!.getTracks()) {
       await _peer!.addTrack(track, _localStream!);
     }
 
     if (!kIsWeb && Platform.isAndroid) {
       await Helper.setSpeakerphoneOn(true);
-      final audioTracks = _localStream?.getAudioTracks() ?? [];
 
       if (audioTracks.isNotEmpty) {
         await Helper.setMicrophoneMute(false, audioTracks.first);
@@ -164,12 +165,9 @@ class CallService {
       for (final t in audioTracks) {
         debugPrint("🎤 local audio track: enabled=${t.enabled}, id=${t.id}");
       }
-
     }
 
-    _localStream!
-        .getAudioTracks()
-        .forEach((t) => t.enabled = true);
+    _localStream!.getAudioTracks().forEach((t) => t.enabled = true);
   }
 
   void _stopMedia() {
@@ -195,6 +193,10 @@ class CallService {
     await initialize();
     await _openUserMedia(audioOnly: audioOnly);
 
+    // danh sách ICE chờ xử lý
+    final List<RTCIceCandidate> pendingCandidates = [];
+
+    // gửi ICE của caller
     _peer!.onIceCandidate = (c) {
       if (c != null) {
         _db
@@ -205,21 +207,24 @@ class CallService {
       }
     };
 
+    // tạo offer
     final offer = await _peer!.createOffer();
     await _peer!.setLocalDescription(offer);
 
     final senders = await _peer!.getSenders();
     for (final s in senders) {
-      debugPrint("📤 sender: ${s.track?.kind}");
+      debugPrint("📤 sender after offer: ${s.track?.kind}");
     }
 
-    await _db.collection("calls").doc(callId).set({
+    // gửi offer lên Firestore
+    await _db.collection("calls").doc(callId).update({
       "offer": offer.toMap(),
       "status": "calling",
       "callerId": _currentUser?.uid,
       "createdAt": FieldValue.serverTimestamp(),
     });
 
+    // Lắng nghe answer từ receiver
     _answerSub = _db
         .collection("calls")
         .doc(callId)
@@ -227,53 +232,100 @@ class CallService {
         .listen((doc) async {
       final data = doc.data();
       if (data == null || data["answer"] == null) return;
-      if (_peer!.getRemoteDescription() != null) return;
 
+      // tránh set lại remoteDescription
+      final currentRemote = await _peer!.getRemoteDescription();
+      if (currentRemote != null) return;
+
+      // set remote answer
       await _peer!.setRemoteDescription(
         RTCSessionDescription(
           data["answer"]["sdp"],
           data["answer"]["type"],
         ),
       );
+
+      // xử lý ICE pending
+      for (final ice in pendingCandidates) {
+        await _peer!.addCandidate(ice);
+      }
+      pendingCandidates.clear();
     });
 
+    // Lắng nghe ICE từ receiver
     _receiverIceSub = _db
         .collection("calls")
         .doc(callId)
         .collection("receiverCandidates")
         .snapshots()
-        .listen((snapshot) {
+        .listen((snapshot) async {
       for (final change in snapshot.docChanges) {
         if (change.type == DocumentChangeType.added) {
           final c = change.doc.data()!;
-          _peer!.addCandidate(
-            RTCIceCandidate(
-              c["candidate"],
-              c["sdpMid"],
-              c["sdpMLineIndex"],
-            ),
+          final ice = RTCIceCandidate(
+            c["candidate"],
+            c["sdpMid"],
+            c["sdpMLineIndex"],
           );
+
+          final remoteDesc = await _peer!.getRemoteDescription();
+
+          if (remoteDesc != null) {
+            await _peer!.addCandidate(ice);
+          } else {
+            pendingCandidates.add(ice);
+          }
         }
       }
     });
   }
-
   // =================== RECEIVER ===================
 
   Future<void> answerCall(
       String callId, {
         required bool audioOnly,
       }) async {
-    if (_answered) return;
-    _answered = true;
-
     await initialize();
 
     final doc = await _db.collection("calls").doc(callId).get();
     final data = doc.data();
     if (data == null || data["offer"] == null) return;
+
+    // mở camera/mic trước
     await _openUserMedia(audioOnly: audioOnly);
 
+    // danh sách ICE chờ xử lý
+    final List<RTCIceCandidate> pendingCandidates = [];
+
+    // Lắng nghe ICE từ caller
+    _callerIceSub = _db
+        .collection("calls")
+        .doc(callId)
+        .collection("callerCandidates")
+        .snapshots()
+        .listen((snapshot) async {
+      for (final change in snapshot.docChanges) {
+        if (change.type == DocumentChangeType.added) {
+          final c = change.doc.data()!;
+          final ice = RTCIceCandidate(
+            c["candidate"],
+            c["sdpMid"],
+            c["sdpMLineIndex"],
+          );
+
+          // kiểm tra remoteDescription đã sẵn sàng chưa
+          final remoteDesc = await _peer!.getRemoteDescription();
+
+          if (remoteDesc != null) {
+            await _peer!.addCandidate(ice);
+          } else {
+            pendingCandidates.add(ice);
+          }
+        }
+      }
+    });
+
+    // set remote offer
     await _peer!.setRemoteDescription(
       RTCSessionDescription(
         data["offer"]["sdp"],
@@ -281,6 +333,13 @@ class CallService {
       ),
     );
 
+    // xử lý các ICE pending
+    for (final ice in pendingCandidates) {
+      await _peer!.addCandidate(ice);
+    }
+    pendingCandidates.clear();
+
+    // gửi ICE của receiver
     _peer!.onIceCandidate = (c) {
       if (c != null) {
         _db
@@ -291,38 +350,16 @@ class CallService {
       }
     };
 
+    // tạo answer
     final answer = await _peer!.createAnswer();
     await _peer!.setLocalDescription(answer);
-
-    final receivers = await _peer!.getReceivers();
-    for (final r in receivers) {
-      debugPrint("📥 receiver: ${r.track?.kind}");
-    }
 
     await _db.collection("calls").doc(callId).update({
       "answer": answer.toMap(),
       "status": "accepted",
     });
 
-    _callerIceSub = _db
-        .collection("calls")
-        .doc(callId)
-        .collection("callerCandidates")
-        .snapshots()
-        .listen((snapshot) {
-      for (final change in snapshot.docChanges) {
-        if (change.type == DocumentChangeType.added) {
-          final c = change.doc.data()!;
-          _peer!.addCandidate(
-            RTCIceCandidate(
-              c["candidate"],
-              c["sdpMid"],
-              c["sdpMLineIndex"],
-            ),
-          );
-        }
-      }
-    });
+    debugPrint("remote description: ${await _peer!.getRemoteDescription()}");
   }
 
   // =================== END ===================

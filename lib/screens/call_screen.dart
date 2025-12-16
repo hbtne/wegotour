@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
+import '../services/auth_service.dart';
 import '../services/call_service.dart';
 
 class CallScreen extends StatefulWidget {
@@ -40,6 +41,7 @@ class _CallScreenState extends State<CallScreen> {
 
     callService.onRemoteStream = () {
       if (!mounted) return;
+      callService.remoteRenderer.muted = false;
       setState(() => widget.isConnected = true);
     };
 
@@ -78,7 +80,7 @@ class _CallScreenState extends State<CallScreen> {
         await _closeAndExit();
       }
 
-      if (data['status'] == 'accepted' && !widget.isConnected) {
+      if ((data['status'] == 'accepted' || data['status'] == 'calling' ) && !widget.isConnected) {
         setState(() => widget.isConnected = true);
       }
     });
@@ -116,6 +118,8 @@ class _CallScreenState extends State<CallScreen> {
   Widget build(BuildContext context) {
     print("🎥 Remote srcObject tracks: "
         "${callService.remoteRenderer.srcObject?.getVideoTracks().length}");
+    print("🎥 Local srcObject tracks: "
+        "${callService.localRenderer.srcObject?.getVideoTracks().length}");
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -137,12 +141,12 @@ class _CallScreenState extends State<CallScreen> {
   Widget _audioUI() => Center(
     child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: const [
-        Icon(Icons.phone_in_talk_rounded,
+      children: [
+        const Icon(Icons.phone_in_talk_rounded,
             size: 80, color: Colors.white),
-        SizedBox(height: 20),
-        Text('Cuộc gọi đang diễn ra...',
-            style: TextStyle(color: Colors.white, fontSize: 22)),
+        const SizedBox(height: 20),
+        Text(AuthService.getCurrentUserName()!,
+            style: const TextStyle(color: Colors.white, fontSize: 22)),
       ],
     ),
   );
@@ -154,7 +158,6 @@ class _CallScreenState extends State<CallScreen> {
         callService.remoteRenderer,
         mirror: false,
         objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-        filterQuality: FilterQuality.none,
       )
       ,
       Positioned(
