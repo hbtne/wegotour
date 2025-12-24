@@ -393,6 +393,11 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                         await groupRef.update({
                           'members': FieldValue.arrayUnion([{'id': u['id'], 'name': u['username']}])
                         });
+
+                        final userRef = _firestore.collection('users').doc(u['id']);
+                        await userRef.update({
+                          'groupIds': FieldValue.arrayUnion([widget.groupId])
+                        });
                       }
                     }
                     Navigator.pop(context);

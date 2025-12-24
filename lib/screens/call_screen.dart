@@ -30,6 +30,9 @@ class _CallScreenState extends State<CallScreen> {
   final CallService callService = CallService();
   StreamSubscription<DocumentSnapshot>? _callSub;
 
+  var isMicroOff = false;
+  var isVideoOff = false;
+  var isCameraBack = false;
   // bool _connected = false;
 
   @override
@@ -42,7 +45,6 @@ class _CallScreenState extends State<CallScreen> {
 
     callService.onRemoteStream = () {
       if (!mounted) return;
-      // callService.remoteRenderer.muted = false;
       setState(() => widget.isConnected = true);
     };
 
@@ -133,7 +135,25 @@ class _CallScreenState extends State<CallScreen> {
             _audioUI()
           else
             _videoUI(),
-          _endCallButton(),
+          Row(
+            children: [
+              FloatingActionButton(
+                backgroundColor: isMicroOff ? Colors.red : Colors.green,
+                child: isMicroOff? Icon(Icons.mic_off_outlined, size: 32) : Icon(Icons.mic),
+                onPressed: () async {
+                  isMicroOff = !isMicroOff;
+                },
+              ),
+              FloatingActionButton(
+                backgroundColor: isVideoOff ? Colors.red : Colors.green,
+                child: isVideoOff? Icon(Icons.videocam_off_outlined, size: 32) : Icon(Icons.videocam),
+                onPressed: () async {
+                  isVideoOff = !isVideoOff;
+                },
+              ),
+              _endCallButton(),
+            ],
+          )
         ],
       ),
     );
@@ -159,8 +179,7 @@ class _CallScreenState extends State<CallScreen> {
         callService.remoteRenderer,
         mirror: false,
         objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-      )
-      ,
+      ),
       Positioned(
         right: 16,
         top: 40,
@@ -174,6 +193,12 @@ class _CallScreenState extends State<CallScreen> {
           ),
         ),
       ),
+      FloatingActionButton(
+        child: const Icon(Icons.change_circle_outlined),
+        onPressed: () async {
+          isCameraBack = !isCameraBack;
+        },
+      ),
     ],
   );
 
@@ -181,8 +206,7 @@ class _CallScreenState extends State<CallScreen> {
     bottom: 40,
     left: 0,
     right: 0,
-    child: Center(
-      child: FloatingActionButton(
+    child: FloatingActionButton(
         backgroundColor: Colors.red,
         child: const Icon(Icons.call_end, size: 32),
         onPressed: () async {
@@ -190,6 +214,5 @@ class _CallScreenState extends State<CallScreen> {
           _closeAndExit();
         },
       ),
-    ),
   );
 }

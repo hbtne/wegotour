@@ -11,6 +11,7 @@ class GroupMessageScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Color primary = const Color(0xFF4A5C3B);
     return Scaffold(
       backgroundColor: Colors.white,
 
@@ -18,17 +19,17 @@ class GroupMessageScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back,
-              color: Color.fromARGB(255, 35, 52, 10)),
+          icon: Icon(Icons.arrow_back,
+              color: primary),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
         centerTitle: true,
-        title: const Text(
+        title: Text(
           'TIN NHẮN',
           style: TextStyle(
-            color: Color(0xFF4A5C3B),
+            color: primary,
             fontWeight: FontWeight.bold,
             fontSize: 16,
             letterSpacing: 0.5,

@@ -5,6 +5,7 @@ import 'package:flutter_neumorphic_plus/flutter_neumorphic.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:stour/assets/icons/person_check_svg.dart';
 import 'package:stour/screens/friend_message.dart';
+import 'package:stour/screens/list_friend_screen.dart';
 
 import 'package:stour/screens/profile_post.dart';
 import 'package:stour/screens/saved_tour.dart';
@@ -435,8 +436,10 @@ class _ProfileState extends State<Profile> {
           children: [
             _buildEventButton("Bài viết", 0,
                 (_profileData!['posts'] as List?)?.length.toString() ?? "0"),
-            _buildEventButton("Đánh giá", 1,
-                (_profileData!['reviews'] as List?)?.length.toString() ?? "0"),
+            TextButton(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FriendListScreen(currentUserId: widget.profileId == AuthService.getCurrentUserId() ? widget.profileId : '',))),
+                child: _buildEventButton("Theo dõi", 1,
+                  (_profileData!['messages'] as List?)?.length.toString() ?? "0")),
             _buildEventButton(
                 "Lịch trình",
                 2,
@@ -676,6 +679,7 @@ Future<Map<String, dynamic>> getProfileData(String docId) async {
       'username': username,
       'location': currentLocationDetail[1],
       'friends': userDoc.data()?['friends'] ?? [],
+      'messages': userDoc.data()?['messages'] ??[]
     };
   } catch (e) {
     throw Exception('Error fetching profile data: $e');

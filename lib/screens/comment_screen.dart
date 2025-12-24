@@ -110,20 +110,7 @@ class _CommentScreenState extends State<CommentScreen> {
           return ListView.builder(
             itemCount: docs.length,
             itemBuilder: (context, index) {
-              final data = docs[index].data() as Map<String, dynamic>;
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundImage: data['avatar'] != null && data['avatar'] != ''
-                      ? NetworkImage(data['avatar'])
-                      : const AssetImage('assets/default_avatar.png') as ImageProvider,
-                ),
-                title: Text(data['username'] ?? 'Ẩn danh'),
-                subtitle: Text(data['value'] ?? 'Không có nội dung'),
-                trailing: Text(
-                  (data['time'] as Timestamp).toDate().toString().substring(0, 16),
-                  style: const TextStyle(fontSize: 12),
-                ),
-              );
+              return CommentItem(doc: docs[index]);
             },
           );
         },
@@ -135,5 +122,66 @@ class _CommentScreenState extends State<CommentScreen> {
         child: const Icon(Icons.add, color: Colors.black),
       ),
     );
+  }
+}
+
+class CommentItem extends StatelessWidget {
+  final DocumentSnapshot doc;
+  final bool highlight;
+
+  const CommentItem({
+    super.key,
+    required this.doc,
+    this.highlight = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final data = doc.data() as Map<String, dynamic>;
+    final Color primary = const Color(0xFF4A5C3B);
+
+    return Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: highlight
+              ? Colors.orangeAccent.shade100
+              : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: highlight ? primary : Colors.grey.shade200,
+            width: highlight ? 1.5 : 1,
+          ),
+        ),
+        child: ListTile(
+          leading: CircleAvatar(
+            backgroundImage: data['avatar'] != null && data['avatar'] != ''
+                ? NetworkImage(data['avatar'])
+                : const AssetImage('assets/default_avatar.png') as ImageProvider,
+          ),
+          title: Text(data['username'] ?? 'Ẩn danh', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),),
+          subtitle: Text(data['value'] ?? 'Không có nội dung', style: TextStyle(fontSize: 13),),
+          trailing: Text(
+            _getTimeAgo(data['time'] as Timestamp),
+            style: const TextStyle(fontSize: 12),
+          ),
+        )
+    );
+  }
+
+  String _getTimeAgo(Timestamp timestamp) {
+    final now = DateTime.now();
+    final postTime = timestamp.toDate();
+    final difference = now.difference(postTime);
+
+    if (difference.inDays > 30) {
+      return '${(difference.inDays / 30).floor()} tháng trước';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays} ngày trước';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} giờ trước';
+    } else {
+      return 'Vừa xong';
+    }
   }
 }

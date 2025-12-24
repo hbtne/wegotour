@@ -24,6 +24,7 @@ class PostItem extends StatelessWidget {
   final List<String> placeIds;
   final String author;
   final String avatar;
+  final String? highlightCommentId;
 
   const PostItem({
     super.key,
@@ -40,8 +41,8 @@ class PostItem extends StatelessWidget {
     required this.authorId,
     required this.placeIds,
     required this.author,
-    required this.avatar
-
+    required this.avatar,
+    this.highlightCommentId
   });
 
   static final _firestore = FirebaseFirestore.instance;
@@ -466,5 +467,4 @@ class PostItem extends StatelessWidget {
       return 'Vừa xong';
     }
   }
-
 }

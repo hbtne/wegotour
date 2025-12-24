@@ -5,13 +5,13 @@ admin.initializeApp();
 
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
-
+const logger = functions.logger;
 const db = admin.firestore();
 
 // ==========================================
 // SEND NOTIFICATION (ADMIN SDK v13 SAFE VERSION)
 // ==========================================
-async function sendNotification(userId, title, body, data = {}) {
+async function sendNotification(userId, body, type, data = {}) {
   logger.info("sendNotification called", { userId, data });
 
   if (!userId) {
@@ -26,7 +26,7 @@ async function sendNotification(userId, title, body, data = {}) {
       .doc(userId)
       .collection("notifications")
       .add({
-        title,
+        type,
         body,
         data,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -55,10 +55,10 @@ async function sendNotification(userId, title, body, data = {}) {
   const message = {
     token,
     notification: {
-      title,
       body,
     },
     data: {
+      type,
       ...data,
     },
   };
@@ -117,12 +117,14 @@ exports.onNewComment = onDocumentCreated("comments/{commentId}", async (event) =
 
   const ownerId = postSnap.data().authorId;
 
+  if(comment.userId == ownerId)
+  return null;
+
   return sendNotification(
     ownerId,
-    "Có bình luận mới",
     `${comment.username} đã bình luận bài viết của bạn`,
+    "communications",
     {
-      type: "comment",
       postId,
       commentId: event.params.commentId,
     }
@@ -139,17 +141,34 @@ exports.onPostLike = onDocumentUpdated("posts/{postId}", async (event) => {
   const beforeCount = (before.likes || []).length;
   const afterCount = (after.likes || []).length;
 
-  if (beforeCount === afterCount) {
-    logger.info("Likes did not change, skipping");
+  if (afterCount <= beforeCount) {
+    logger.info("Unlike or no change, skipping");
     return null;
   }
 
+const userLikedId = after.likedBy[after.likedBy.length - 1];
+
+  if(userLikedId === after.authorId)
+  return null;
+
+  const userSnap = await db.collection("users").doc(userLikedId).get();
+  if (!userSnap.exists) {
+    logger.error("User not found:", userLikedId);
+    return null;
+  }
+
+  const username = userSnap.data().username;
+
+  const message =
+    afterCount > 1
+      ? `${username} và ${afterCount - 1} người khác đã bày tỏ cảm xúc về bài viết của bạn.`
+      : `${username} đã bày tỏ cảm xúc về bài viết của bạn.`;
+
   return sendNotification(
     after.authorId,
-    "Có lượt thích mới",
-    "Bài viết của bạn vừa có người thích",
+    message,
+    "communications",
     {
-      type: "like",
       postId: event.params.postId,
     }
   );
@@ -188,10 +207,9 @@ exports.onEventCreated = onDocumentCreated("events/{eventId}", async (event) => 
 
     return sendNotification(
       uid,
-      "Sự kiện mới",
-      `${data.title} vừa được tạo trong nhóm`,
+      `${data.title} vừa được tạo trong nhóm ${groupSnap.data().name}`,
+      "event",
       {
-        type: "event",
         eventId: event.params.eventId,
         groupId,
       }
@@ -209,32 +227,40 @@ exports.checkAnniversary = onSchedule("every 24 hours", async () => {
 
   const today = new Date();
   const month = today.getMonth();
-  const date = today.getDate();
+  const day = today.getDate();
 
   const postsSnap = await db.collection("posts").get();
-
   const promises = [];
 
   postsSnap.forEach((doc) => {
     const post = doc.data();
-    const createdAt = post.createdAt?.toDate();
+    if (!post.createdAt) return;
 
-    if (!createdAt) return;
-    if (createdAt.getMonth() !== month || createdAt.getDate() !== date) return;
+    const createdAt = post.createdAt.toDate();
+
+    if (
+      createdAt.getMonth() !== month ||
+      createdAt.getDate() !== day
+    ) return;
 
     const userId = post.authorId;
     if (!userId) return;
 
+    const place = post.location ?? "một nơi nào đó";
+    const formattedDate = createdAt.toLocaleDateString("vi-VN");
+
+    const message =
+      `Bạn đã đến ${place} vào ngày ${formattedDate}\n` +
+      `Cùng xem lại những mảnh ký ức đó nào ❤️`;
+
     promises.push(
       sendNotification(
-        userId,
-        "Kỷ niệm hôm nay",
-        `Một bài viết của bạn từ năm trước đang xuất hiện lại.`,
-        {
-          type: "anniversary",
-          postId: doc.id,
-        }
-      )
+      userId,
+      message,
+      "anniversary",
+      {
+        postId: doc.id,
+      })
     );
   });
 

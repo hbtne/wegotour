@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import '../util/places.dart';
 
-const primary = Color(0xFF2E582B);
-
 class RankingScreen extends StatefulWidget {
   final List<Place> source;
 
@@ -14,6 +12,7 @@ class RankingScreen extends StatefulWidget {
 
 class _RankingScreenState extends State<RankingScreen> {
   String selectedTab = "Ngày";
+  final Color primary = Color(0xFF2E582B);
 
   /// Lấy field tương ứng với tab
   String get checkinField {
@@ -86,10 +85,10 @@ class _RankingScreenState extends State<RankingScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, color: primary),
+                    icon: Icon(Icons.arrow_back, color: primary),
                     onPressed: () => Navigator.pop(context),
                   ),
-                  const Text(
+                  Text(
                     "BẢNG XẾP HẠNG",
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
@@ -97,7 +96,7 @@ class _RankingScreenState extends State<RankingScreen> {
                       color: primary,
                     ),
                   ),
-                  const Icon(Icons.search, color: primary),
+                  Icon(Icons.search, color: primary),
                 ],
               ),
 
@@ -140,7 +139,7 @@ class _RankingScreenState extends State<RankingScreen> {
               Expanded(
                 child: ListView(
                   children: [
-                    const Text(
+                    Text(
                       "Checkin nhiều nhất 🏆",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
@@ -152,7 +151,7 @@ class _RankingScreenState extends State<RankingScreen> {
 
                     const SizedBox(height: 20),
 
-                    const Text(
+                    Text(
                       "Đánh giá cao và nhiều nhất 🏆",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,

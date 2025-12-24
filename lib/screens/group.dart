@@ -9,6 +9,7 @@ import 'package:stour/screens/find_group.dart';
 import 'package:stour/screens/list_group.dart';
 import 'package:stour/screens/list_group_message.dart';
 
+import '../services/auth_service.dart';
 import '../widgets/item_post.dart';
 import '../assets/icons/chat_feed_bar.dart';
 
@@ -27,6 +28,24 @@ class _GroupsScreenState extends State<GroupsScreen> {
     super.initState();
   }
 
+  Future<List<String>> _getUserGroupIds() async {
+    final uid = AuthService.getCurrentUserId();
+    final userSnap = await _firestore.collection('users').doc(uid).get();
+
+    final data = userSnap.data();
+    if (data == null || data['groupIds'] == null) return [];
+
+    return List<String>.from(data['groupIds']);
+  }
+
+  Stream<QuerySnapshot> _postsByGroupsStream(List<String> groupIds) {
+    return _firestore
+        .collection('posts')
+        .where('groupId', whereIn: groupIds)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -35,55 +54,67 @@ class _GroupsScreenState extends State<GroupsScreen> {
         children: [
           _buildTopActions(),
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('posts')
-                  .orderBy('createdAt', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+            child: FutureBuilder<List<String>>(
+              future: _getUserGroupIds(),
+              builder: (context, groupSnapshot) {
+                if (groupSnapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                if (snapshot.hasError) {
-                  return Center(child: Text('Lỗi: ${snapshot.error}'));
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text('Chưa có bài viết nào'));
+
+                final groupIds = groupSnapshot.data ?? [];
+
+                if (groupIds.isEmpty) {
+                  return const Center(child: Text('Bạn chưa tham gia nhóm nào'));
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  itemCount: snapshot.data!.docs.length,
-                  itemBuilder: (context, index) {
-                    final postData = snapshot.data!.docs[index];
-                    final data = postData.data() as Map<String, dynamic>;
-                    final authorId = data['authorId'] ?? '';
-                    return FutureBuilder<DocumentSnapshot>(
-                      future:
-                          _firestore.collection('users').doc(authorId).get(),
-                      builder: (context, userSnapshot) {
-                        if (userSnapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const SizedBox();
-                        }
-                        final userData = (userSnapshot.data?.data()
-                                as Map<String, dynamic>?) ??
-                            {};
-                        return PostItem(
-                          postId: postData.id,
-                          groupId: data['groupId'] ?? '',
-                          groupName: data['groupName'] ?? '',
-                          content: data['content'] ?? '',
-                          imageUrls: List<String>.from(data['imageUrls'] ?? []),
-                          author: userData['username'] ?? 'Ẩn danh',
-                          timeAgo: data['createdAt'] as Timestamp,
-                          location: data['location'] ?? '',
-                          avatar: userData['avatar'] ?? '',
-                          likes: data['likes'] ?? 0,
-                          comments: data['comments'] ?? 0,
-                          shares: data['shares'] ?? 0,
-                          authorId: authorId,
-                          placeIds: List<String>.from(data['places'] ?? []),
+                return StreamBuilder<QuerySnapshot>(
+                  stream: _postsByGroupsStream(groupIds),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return const Center(child: Text('Chưa có bài viết nào'));
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      itemCount: snapshot.data!.docs.length,
+                      itemBuilder: (context, index) {
+                        final postDoc = snapshot.data!.docs[index];
+                        final data = postDoc.data() as Map<String, dynamic>;
+                        final authorId = data['authorId'] ?? '';
+
+                        return FutureBuilder<DocumentSnapshot>(
+                          future: FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(authorId)
+                              .get(),
+                          builder: (context, userSnapshot) {
+                            if (!userSnapshot.hasData) return const SizedBox();
+
+                            final userData =
+                                userSnapshot.data!.data() as Map<String, dynamic>? ?? {};
+
+                            return PostItem(
+                              postId: postDoc.id,
+                              groupId: data['groupId'] ?? '',
+                              groupName: data['groupName'] ?? '',
+                              content: data['content'] ?? '',
+                              imageUrls:
+                              List<String>.from(data['imageUrls'] ?? []),
+                              author: userData['username'] ?? 'Ẩn danh',
+                              timeAgo: data['createdAt'] as Timestamp,
+                              location: data['location'] ?? '',
+                              avatar: userData['avatar'] ?? '',
+                              likes: data['likes'] ?? 0,
+                              comments: data['comments'] ?? 0,
+                              shares: data['shares'] ?? 0,
+                              authorId: authorId,
+                              placeIds: List<String>.from(data['places'] ?? []),
+                            );
+                          },
                         );
                       },
                     );

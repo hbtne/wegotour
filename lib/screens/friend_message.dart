@@ -5,12 +5,17 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:stour/assets/icons/call_video_svg.dart';
 import 'package:stour/screens/call_screen.dart';
+import 'package:stour/screens/ranking_screen.dart';
 import 'package:stour/services/auth_service.dart';
 import 'package:stour/services/cloudinary_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../widgets/location_message_bubble.dart';
 
 class PersonalChatScreen extends StatefulWidget {
   final String friendId;
@@ -143,7 +148,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
   }
 
   Future<void> _pickImageAndSend() async {
-    final source = await showModalBottomSheet<ImageSource>(
+    final action = await showModalBottomSheet<SendAction>(
       context: context,
       builder: (c) => SafeArea(
         child: Wrap(
@@ -151,12 +156,17 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
             ListTile(
               leading: const Icon(Icons.photo_library),
               title: const Text('Thư viện'),
-              onTap: () => Navigator.pop(c, ImageSource.gallery),
+              onTap: () => Navigator.pop(c, SendAction.gallery),
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt),
               title: const Text('Máy ảnh'),
-              onTap: () => Navigator.pop(c, ImageSource.camera),
+              onTap: () => Navigator.pop(c, SendAction.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.close),
+              title: const Text('Chia sẻ vị trí'),
+              onTap: () => Navigator.pop(c, SendAction.location),
             ),
             ListTile(
               leading: const Icon(Icons.close),
@@ -168,9 +178,30 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       ),
     );
 
-    if (source == null) return;
+    if (action == null) return;
 
-    final XFile? picked = await _picker.pickImage(source: source, imageQuality: 75);
+    if (action == SendAction.location) {
+      if (conversationId == null || user == null) return;
+
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      try {
+        await sendLocationMessage(conversationId!, user!.uid);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('Không gửi được vị trí')));
+        }
+      }
+      return;
+    }
+
+    final source =
+    action == SendAction.gallery ? ImageSource.gallery : ImageSource.camera;
+
+    final XFile? picked =
+    await _picker.pickImage(source: source, imageQuality: 75);
+
     if (picked == null) return;
 
     final file = File(picked.path);
@@ -268,38 +299,27 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     }
   }
 
-  Widget _messageRow({required String name, required String msg, required String imageUrl}) {
-    const Color greenBubble = Color(0xFF8E9F87);
+  Widget _messageRow(Map<String, dynamic> msg) {
+    final Color greenBubble = Color(0xFF8E9F87);
+
+    if (msg['type'] == 'location') {
+      return LocationMessageBubble(
+        lat: msg['lat'],
+        lng: msg['lng'],
+      );
+    }
+
+    final text = (msg['text'] ?? '') as String;
+    final imageUrl = (msg['imageUrl'] ?? '') as String;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          children: [
-            // Text(
-            //   name,
-            //   style: const TextStyle(
-            //     fontWeight: FontWeight.w600,
-            //     fontSize: 13,
-            //     color: Colors.black,
-            //   ),
-            // ),
-            // const SizedBox(height: 4),
-            SizedBox(
-              width: 40,
-              height: 40,
-              // decoration: const BoxDecoration(
-              //   color: Color(0xFF97A989),
-              //   shape: BoxShape.circle,
-              // ),
-              child: CircleAvatar(
-                backgroundColor: Colors.transparent,
-                backgroundImage: imageUrl != ""
-                    ? NetworkImage(imageUrl)
-                    : const AssetImage('assets/default_avatar.png') as ImageProvider,
-              ),
-            ),
-          ],
+        CircleAvatar(
+          backgroundColor: Colors.transparent,
+          backgroundImage: imageUrl != ""
+              ? NetworkImage(imageUrl)
+              : const AssetImage('assets/default_avatar.png') as ImageProvider,
         ),
         const SizedBox(width: 12),
         Flexible(
@@ -320,7 +340,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
                       child: Image.network(imageUrl, fit: BoxFit.cover),
                     ),
                   ),
-                if (msg.isNotEmpty) Text(msg, style: const TextStyle(fontSize: 16)),
+                if (msg.isNotEmpty) Text(text, style: const TextStyle(fontSize: 16)),
               ],
             ),
           ),
@@ -329,8 +349,24 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     );
   }
 
-  Widget _messageSelf(String msg, String imageUrl) {
+  Widget _messageSelf(Map<String, dynamic> msg) {
     const Color yellowBubble = Color(0xFFFFE7A6);
+
+    if (msg['type'] == 'location') {
+      return GestureDetector(
+        onTap: () {
+          final url =
+              "https://www.google.com/maps/search/?api=1&query=$msg['lat'],$msg['lng']";
+          launchUrl(Uri.parse(url));
+        },
+        child: LocationMessageBubble(lat: msg['lat'],
+          lng: msg['lng'],),
+      );
+    }
+
+    final text = (msg['text'] ?? '') as String;
+    final imageUrl = (msg['imageUrl'] ?? '') as String;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
@@ -352,7 +388,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
                       child: Image.network(imageUrl, fit: BoxFit.cover),
                     ),
                   ),
-                if (msg.isNotEmpty) Text(msg, style: const TextStyle(fontSize: 16)),
+                if (msg.isNotEmpty) Text(text, style: const TextStyle(fontSize: 16)),
               ],
             ),
           ),
@@ -400,6 +436,69 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     );
   }
 
+  AppBar _buildAppBar(BuildContext context, String friendName, Color primary) {
+    return AppBar(
+      backgroundColor: Colors.white,
+      centerTitle: true,
+      title: Text(
+        friendName,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: primary,
+        ),
+        overflow: TextOverflow.ellipsis,
+      ),
+      leading: IconButton(
+        icon: Icon(Icons.arrow_back, color: primary),
+        onPressed: () => Navigator.pop(context),
+      ),
+      actions: [
+        IconButton(
+            onPressed: () => _onCall(true),
+            icon: Icon(Icons.call, color: primary,)),
+        IconButton(
+            onPressed: () => _onCall(false),
+            icon: Icon(Icons.videocam, color: primary))
+      ],
+    );
+  }
+
+  Future<Position> getCurrentLocation() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      throw Exception("Location service disabled");
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      throw Exception("Location permission permanently denied");
+    }
+
+    return await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+  }
+
+  Future<void> sendLocationMessage(String chatId, String senderId) async {
+    final position = await getCurrentLocation();
+
+    await FirebaseFirestore.instance
+        .collection('messages')
+        .doc(chatId)
+        .collection('messages')
+        .add({
+      'senderId': senderId,
+      'type': 'location',
+      'lat': position.latitude,
+      'lng': position.longitude,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     const Color primary = Color(0xFF4A5C3B);
@@ -411,42 +510,10 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: _buildAppBar(context, widget.friendName, primary),
       body: SafeArea(
         child: Column(
           children: [
-            // header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: primary),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const Spacer(),
-                  Text(
-                    widget.friendName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 20,
-                      color: primary,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const Spacer(),
-                  const SizedBox(width: 40),
-                  IconButton(
-                    onPressed: () => _onCall(true),
-                    icon: Icon(Icons.call, color: primary,)),
-                  SizedBox(width: 5,),
-                  IconButton(
-                    onPressed: () => _onCall(false),
-                    icon: Icon(Icons.videocam, color: primary))
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            // messages
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
@@ -465,19 +532,15 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
                     itemBuilder: (context, index) {
                       final msg = messages[index].data() as Map<String, dynamic>;
                       final isSelf = msg['senderId'] == user?.uid;
-                      final text = (msg['text'] ?? '') as String;
-                      final imageUrl = (msg['imageUrl'] ?? '') as String;
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
-                        child: isSelf ? _messageSelf(text, imageUrl) : _messageRow(name: msg['senderName'] ?? '',
-                                                                                         msg: text, imageUrl: imageUrl),
+                        child: isSelf ? _messageSelf(msg) : _messageRow(msg),
                       );
                     },
                   );
                 },
               ),
             ),
-            // input
             Container(
               height: 65,
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -529,4 +592,10 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       ),
     );
   }
+}
+
+enum SendAction {
+  gallery,
+  camera,
+  location,
 }

@@ -129,7 +129,7 @@ class _FeedsState extends State<Feeds> {
       backgroundColor: Colors.white,
       centerTitle: true,
       title: const Text(
-        'FEEDS',
+        'BẢNG TIN',
         style: TextStyle(
           fontWeight: FontWeight.bold,
           color: Color(0xFF3B6332),
@@ -197,25 +197,5 @@ class _FeedsState extends State<Feeds> {
         ],
       ),
     );
-  }
-
-  Future<List<Map<String, dynamic>>> _fetchPlacesFromIds(
-      List<String> placeIds) async {
-    List<Map<String, dynamic>> results = [];
-
-    for (String id in placeIds) {
-      for (String col in ['stourplace1', 'food']) {
-        final doc = await _firestore.collection(col).doc(id).get();
-        if (doc.exists) {
-          final data = doc.data();
-          if (data != null) {
-            results.add(data);
-            break;
-          }
-        }
-      }
-    }
-
-    return results;
   }
 }
