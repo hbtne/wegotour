@@ -14,7 +14,7 @@ import 'package:stour/widgets/search_card.dart';
 import 'package:stour/screens/home_app_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:stour/screens/addPlace_screen.dart';
-import 'package:stour/screens/create_collection_event.dart'; 
+import 'package:stour/screens/create_collection_event.dart';
 import 'manage_account_screen.dart';
 import 'manage_place_screen.dart';
 
@@ -33,7 +33,7 @@ class _GoogleMapsControllerState extends State<GoogleMapsController> {
   void initState() {
     super.initState();
     determinePosition().then(
-          (position) {
+      (position) {
         getUserAddress(position);
         setState(() {
           _center = LatLng(position.latitude, position.longitude);
@@ -41,7 +41,8 @@ class _GoogleMapsControllerState extends State<GoogleMapsController> {
             Marker(
               markerId: const MarkerId('user_location'),
               position: _center,
-              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                  BitmapDescriptor.hueRed),
             ),
           );
           if (mapController != null) {
@@ -78,7 +79,8 @@ class _GoogleMapsControllerState extends State<GoogleMapsController> {
   }
 
   Future<List<String>> getAddressInfoFromPosition(Position position) async {
-    List<Placemark> placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+    List<Placemark> placemarks =
+        await placemarkFromCoordinates(position.latitude, position.longitude);
     Placemark placemark = placemarks.first;
     String country = placemark.country ?? "";
     String district = placemark.subAdministrativeArea ?? "";
@@ -118,9 +120,7 @@ class MenuAdmin extends StatefulWidget {
   State<MenuAdmin> createState() {
     return _MenuAdminState();
   }
-
 }
-
 
 class _MenuAdminState extends State<MenuAdmin> {
   late Stream<List<Place>> places;
@@ -136,13 +136,12 @@ class _MenuAdminState extends State<MenuAdmin> {
       );
     }
   }
+
   @override
   void initState() {
     super.initState();
     places = getAllPlaceFoodStream('stourplace1');
     food = getAllPlaceFoodStream('food');
-
-
   }
 
   @override
@@ -165,10 +164,7 @@ class _MenuAdminState extends State<MenuAdmin> {
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child: SafeArea(
             child: ListView(
-
               children: <Widget>[
-
-
                 const SizedBox(height: 20.0),
                 StreamBuilder<List<Place>>(
                   stream: places,
@@ -231,7 +227,8 @@ class _MenuAdminState extends State<MenuAdmin> {
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => UserManagementScreen() ),
+                            MaterialPageRoute(
+                                builder: (context) => UserManagementScreen()),
                           );
                         },
                         child: const Text(
@@ -265,10 +262,10 @@ class _MenuAdminState extends State<MenuAdmin> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const PlaceManagementScreen(collectionName: 'stourplace1'),
+                              builder: (context) => const PlaceManagementScreen(
+                                  collectionName: 'stourplace1'),
                             ),
                           );
-
                         },
                         child: const Text(
                           'Xem chi tiết',
@@ -281,7 +278,8 @@ class _MenuAdminState extends State<MenuAdmin> {
                       ),
                     ],
                   ),
-                ),      const SizedBox(height: 20),
+                ),
+                const SizedBox(height: 20),
                 SizedBox(
                   height: 50,
                   child: Row(
@@ -300,10 +298,10 @@ class _MenuAdminState extends State<MenuAdmin> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const PlaceManagementScreen(collectionName: 'food'),
+                              builder: (context) => const PlaceManagementScreen(
+                                  collectionName: 'food'),
                             ),
                           );
-
                         },
                         child: const Text(
                           'Xem chi tiết',
@@ -316,7 +314,8 @@ class _MenuAdminState extends State<MenuAdmin> {
                       ),
                     ],
                   ),
-                ),                SizedBox(
+                ),
+                SizedBox(
                   height: 50,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -334,10 +333,10 @@ class _MenuAdminState extends State<MenuAdmin> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const PlaceApprovalScreen(collectionName: 'stourplace1'),
+                              builder: (context) => const PlaceApprovalScreen(
+                                  collectionName: 'stourplace1'),
                             ),
                           );
-
                         },
                         child: const Text(
                           'Xem chi tiết',
@@ -350,7 +349,8 @@ class _MenuAdminState extends State<MenuAdmin> {
                       ),
                     ],
                   ),
-                ), SizedBox(
+                ),
+                SizedBox(
                   height: 50,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -368,10 +368,10 @@ class _MenuAdminState extends State<MenuAdmin> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const PlaceApprovalScreen(collectionName: 'food'),
+                              builder: (context) => const PlaceApprovalScreen(
+                                  collectionName: 'food'),
                             ),
                           );
-
                         },
                         child: const Text(
                           'Xem chi tiết',
@@ -385,19 +385,42 @@ class _MenuAdminState extends State<MenuAdmin> {
                     ],
                   ),
                 ),
-
+                SizedBox(
+                  height: 50,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Tạo event sưu tầm',
+                        style: TextStyle(
+                          fontSize: 20.0,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF3B6332),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CreateCollectionEvent(),
+                            ),
+                          );
+                        },
+                        child: const Text(
+                          'Xem chi tiết',
+                          style: TextStyle(
+                            fontSize: 16.0,
+                            fontWeight: FontWeight.w400,
+                            color: Color.fromARGB(128, 255, 209, 102),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
                 const SizedBox(height: 20),
-                Center(
-                  child: ElevatedButton.icon(
-                  icon: const Icon(Icons.add_circle_outline),
-                  label: const Text('Tạo event sưu tầm'),
-                    onPressed: () => Navigator.pushNamed(context, '/create_collection_event'),
-                style: ElevatedButton.styleFrom(
-              backgroundColor: Color.fromARGB(255, 120, 180, 120),
-    ),
-  ),
-),
-const SizedBox(height: 20),
                 Center(
                   child: ElevatedButton.icon(
                     onPressed: () => _logout(context),
@@ -409,7 +432,6 @@ const SizedBox(height: 20),
                   ),
                 ),
                 const SizedBox(height: 30),
-
                 const SizedBox(height: 30),
               ],
             ),
@@ -420,7 +442,8 @@ const SizedBox(height: 20),
   }
 }
 
-Widget buildPlaceList(BuildContext context, List<Place> source, String collectionName) {
+Widget buildPlaceList(
+    BuildContext context, List<Place> source, String collectionName) {
   return SizedBox(
     height: MediaQuery.of(context).size.height / 2.4,
     width: MediaQuery.of(context).size.width,
@@ -481,14 +504,17 @@ Widget buildPlaceList(BuildContext context, List<Place> source, String collectio
                               context: scaffoldContext,
                               builder: (context) => AlertDialog(
                                 title: const Text('Xác nhận'),
-                                content: const Text('Bạn có chắc chắn muốn xóa địa điểm này không?'),
+                                content: const Text(
+                                    'Bạn có chắc chắn muốn xóa địa điểm này không?'),
                                 actions: [
                                   TextButton(
-                                    onPressed: () => Navigator.pop(context, false),
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
                                     child: const Text('Hủy'),
                                   ),
                                   TextButton(
-                                    onPressed: () => Navigator.pop(context, true),
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
                                     child: const Text('Xóa'),
                                   ),
                                 ],
@@ -502,8 +528,10 @@ Widget buildPlaceList(BuildContext context, List<Place> source, String collectio
                                   .delete();
                               if (!context.mounted) return;
                               if (scaffoldContext.mounted) {
-                                ScaffoldMessenger.of(scaffoldContext).showSnackBar(
-                                  const SnackBar(content: Text('Xóa thành công')),
+                                ScaffoldMessenger.of(scaffoldContext)
+                                    .showSnackBar(
+                                  const SnackBar(
+                                      content: Text('Xóa thành công')),
                                 );
                               }
                             }
@@ -579,5 +607,5 @@ Widget _buildMenuButton({
 
 Widget buildSearchBar(BuildContext context) {
   return Container(
-      margin: const EdgeInsets.fromLTRB(10, 5, 10, 0), child:  SearchCard());
+      margin: const EdgeInsets.fromLTRB(10, 5, 10, 0), child: SearchCard());
 }

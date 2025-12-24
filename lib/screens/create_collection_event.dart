@@ -1,39 +1,66 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../services/cloudinary_service.dart';
 
 class CreateCollectionEvent extends StatefulWidget {
   const CreateCollectionEvent({super.key});
+
   @override
   State<CreateCollectionEvent> createState() => _CreateCollectionEventState();
 }
 
 class _CreateCollectionEventState extends State<CreateCollectionEvent> {
   final _formKey = GlobalKey<FormState>();
+
   final _titleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
-  final _badgeIconCtrl = TextEditingController();
-  final _keywordsCtrl = TextEditingController(); // ← THÊM: Keywords cho Vision API
-  
+  final _keywordsCtrl = TextEditingController();
+
+  final CloudinaryService _cloudinaryService = CloudinaryService();
+
   DateTime _start = DateTime.now();
   DateTime _end = DateTime.now().add(const Duration(days: 7));
+
+  File? _badgeImage;
   bool _isLoading = false;
 
   @override
   void dispose() {
     _titleCtrl.dispose();
     _descCtrl.dispose();
-    _badgeIconCtrl.dispose();
     _keywordsCtrl.dispose();
     super.dispose();
   }
 
+  Future<void> _pickBadgeImage() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+
+    if (picked != null) {
+      setState(() {
+        _badgeImage = File(picked.path);
+      });
+    }
+  }
+
   Future<void> _create() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       _showError('Bạn cần đăng nhập để tạo event');
+      return;
+    }
+
+    if (_badgeImage == null) {
+      _showError('Vui lòng chọn hình ảnh huy hiệu');
       return;
     }
 
@@ -41,24 +68,30 @@ class _CreateCollectionEventState extends State<CreateCollectionEvent> {
 
     try {
       final title = _titleCtrl.text.trim();
-      final badgeId = 'badge_${title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_')}';
-      
-      // Parse keywords (phân tách bằng dấu phẩy)
-      final keywordsText = _keywordsCtrl.text.trim();
-      final keywords = keywordsText.isEmpty 
-          ? <String>[]
-          : keywordsText.split(',').map((k) => k.trim().toLowerCase()).where((k) => k.isNotEmpty).toList();
+      final badgeId =
+          'badge_${title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_')}';
+
+      final keywords = _keywordsCtrl.text
+          .split(',')
+          .map((k) => k.trim().toLowerCase())
+          .where((k) => k.isNotEmpty)
+          .toList();
 
       if (keywords.isEmpty) {
-        _showError('Vui lòng nhập ít nhất 1 từ khóa để validate ảnh');
+        _showError('Vui lòng nhập ít nhất 1 từ khóa');
         setState(() => _isLoading = false);
         return;
       }
 
+      final uploadedUrls = await _cloudinaryService.uploadImages(
+        [_badgeImage!.path],
+      );
+      final badgeIconUrl = uploadedUrls.first;
+
       final event = {
         'title': title,
         'description': _descCtrl.text.trim(),
-        'keywords': keywords, // ← THÊM: Keywords array
+        'keywords': keywords,
         'category': 'collection',
         'startAt': Timestamp.fromDate(_start),
         'endAt': Timestamp.fromDate(_end),
@@ -67,9 +100,7 @@ class _CreateCollectionEventState extends State<CreateCollectionEvent> {
         'badge': {
           'id': badgeId,
           'name': 'Huy hiệu $title',
-          'icon': _badgeIconCtrl.text.trim().isEmpty 
-              ? 'https://via.placeholder.com/150' 
-              : _badgeIconCtrl.text.trim(),
+          'icon': badgeIconUrl,
           'description': 'Huy hiệu sự kiện $title',
         },
         'processed': false,
@@ -81,13 +112,13 @@ class _CreateCollectionEventState extends State<CreateCollectionEvent> {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ Tạo event "$title" thành công!'),
+            content: Text('✅ Tạo sự kiện "$title" thành công!'),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
-      _showError('Lỗi khi tạo event: $e');
+      _showError('Lỗi khi tạo sự kiện: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -100,12 +131,13 @@ class _CreateCollectionEventState extends State<CreateCollectionEvent> {
     );
   }
 
+  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tạo sự kiện sưu tầm'),
-        elevation: 0,
+        title: const Text('TẠO SỰ KIỆN', style: TextStyle(color: Color.fromRGBO(59, 99, 50, 1), fontWeight: FontWeight.bold)),
+        centerTitle: true,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -114,127 +146,203 @@ class _CreateCollectionEventState extends State<CreateCollectionEvent> {
               child: Form(
                 key: _formKey,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Tiêu đề
-                    TextFormField(
-                      controller: _titleCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Tiêu đề sự kiện *',
-                        hintText: 'VD: Khám phá ẩm thực Sài Gòn',
-                        prefixIcon: Icon(Icons.title),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Vui lòng nhập tiêu đề' : null,
-                      maxLength: 100,
-                    ),
-                    const SizedBox(height: 16),
+                    _label('Tiêu đề sự kiện'),
+                    _input(_titleCtrl, 'Nhập tiêu đề'),
 
-                    // Mô tả
-                    TextFormField(
-                      controller: _descCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Mô tả sự kiện *',
-                        hintText: 'Mô tả chi tiết về sự kiện...',
-                        prefixIcon: Icon(Icons.description),
-                        border: OutlineInputBorder(),
-                      ),
-                      maxLines: 4,
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Vui lòng nhập mô tả' : null,
-                    ),
-                    const SizedBox(height: 16),
+                    _label('Mô tả sự kiện'),
+                    _input(_descCtrl, 'Nhập mô tả'),
 
-                    // Keywords (QUAN TRỌNG)
-                    TextFormField(
-                      controller: _keywordsCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Từ khóa kiểm tra ảnh *',
-                        hintText: 'bánh mì, phở, cà phê, dinh độc lập',
-                        helperText: 'Phân cách bằng dấu phẩy. Ảnh của user phải chứa ít nhất 1 từ khóa',
-                        prefixIcon: Icon(Icons.search),
-                        border: OutlineInputBorder(),
-                      ),
+                    _label('Từ khóa'),
+                    _input(
+                      _keywordsCtrl,
+                      'Mỗi từ cách nhau bằng dấu phẩy',
                       maxLines: 2,
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Vui lòng nhập từ khóa' : null,
                     ),
-                    const SizedBox(height: 16),
 
-                    // URL icon huy hiệu
-                    TextFormField(
-                      controller: _badgeIconCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'URL icon huy hiệu (tùy chọn)',
-                        hintText: 'https://example.com/badge.png',
-                        prefixIcon: Icon(Icons.emoji_events),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
 
-                    // Thời gian
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Thời gian sự kiện', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    icon: const Icon(Icons.calendar_today),
-                                    label: Text('Bắt đầu\n${_start.toLocal().toString().split(' ')[0]}'),
-                                    onPressed: () async {
-                                      final d = await showDatePicker(
-                                        context: context,
-                                        initialDate: _start,
-                                        firstDate: DateTime.now(),
-                                        lastDate: DateTime(2100),
-                                      );
-                                      if (d != null) setState(() => _start = d);
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    icon: const Icon(Icons.event),
-                                    label: Text('Kết thúc\n${_end.toLocal().toString().split(' ')[0]}'),
-                                    onPressed: () async {
-                                      final d = await showDatePicker(
-                                        context: context,
-                                        initialDate: _end,
-                                        firstDate: _start,
-                                        lastDate: DateTime(2100),
-                                      );
-                                      if (d != null) setState(() => _end = d);
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                    // ================= TIME =================
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _timeBox(
+                          'Bắt đầu',
+                          _start,
+                          () async {
+                            final d = await showDatePicker(
+                              context: context,
+                              initialDate: _start,
+                              firstDate: DateTime.now(),
+                              lastDate: DateTime(2100),
+                            );
+                            if (d != null) setState(() => _start = d);
+                          },
                         ),
-                      ),
+                        _timeBox(
+                          'Kết thúc',
+                          _end,
+                          () async {
+                            final d = await showDatePicker(
+                              context: context,
+                              initialDate: _end,
+                              firstDate: _start,
+                              lastDate: DateTime(2100),
+                            );
+                            if (d != null) setState(() => _end = d);
+                          },
+                        ),
+                      ],
                     ),
+
                     const SizedBox(height: 24),
 
-                    // Button tạo
-                    ElevatedButton.icon(
-                      onPressed: _create,
-                      icon: const Icon(Icons.add_circle),
-                      label: const Text('Tạo sự kiện'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        textStyle: const TextStyle(fontSize: 16),
-                      ),
+                    // ================= BADGE IMAGE =================
+                    _label('Hình ảnh huy hiệu'),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 120,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFE8B6),
+                              borderRadius: BorderRadius.circular(12),
+                              image: _badgeImage != null
+                                  ? DecorationImage(
+                                      image: FileImage(_badgeImage!),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null,
+                              border: Border.all(color: Colors.green),
+                            ),
+                            child: _badgeImage == null
+                                ? const Center(
+                                    child: Text(
+                                      'Chưa chọn ảnh',
+                                      style: TextStyle(color: Colors.grey),
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        GestureDetector(
+                          onTap: _pickBadgeImage,
+                          child: Container(
+                            height: 120,
+                            width: 60,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFD166),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.image,
+                              size: 30,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // ================= BUTTONS =================
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Hủy'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF3B6332),
+                              side: const BorderSide(color: Color(0xFF3B6332)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _create,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF3B6332),
+                            ),
+                            child: const Text('Tạo sự kiện', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
             ),
+    );
+  }
+
+  // ================= UI HELPERS =================
+  Widget _label(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF3B6332),
+        ),
+      ),
+    );
+  }
+
+  Widget _input(TextEditingController ctrl, String hint, {int maxLines = 1}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextFormField(
+        controller: ctrl,
+        maxLines: maxLines,
+        validator: (v) =>
+            v == null || v.trim().isEmpty ? 'Không được để trống' : null,
+        decoration: InputDecoration(
+          hintText: hint,
+          filled: true,
+          fillColor: const Color(0xFFFFE8B6),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _timeBox(String label, DateTime time, VoidCallback onTap) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold, color: Color(0xFF3B6332))),
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: onTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFE8B6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${time.day}/${time.month}/${time.year}',
+                style: const TextStyle(fontWeight: FontWeight.w300),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
