@@ -20,6 +20,10 @@ class _CollectionEventDetailScreenState
     extends State<CollectionEventDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final Map<String, bool> _optimisticLiked = {};
+  final Map<String, int> _optimisticLikeDelta = {};
+  final Map<String, int> _optimisticScoreDelta = {};
+  final Set<String> _likeInFlight = {};
 
   @override
   void initState() {
@@ -150,12 +154,13 @@ class _CollectionEventDetailScreenState
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children:[
+                    children: [
                       // Mô tả
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                         SvgPicture.string(BioIcon.bioSVG, height: 20, width: 20),
+                          SvgPicture.string(BioIcon.bioSVG,
+                              height: 20, width: 20),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -172,13 +177,13 @@ class _CollectionEventDetailScreenState
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          
                           children: keywords
                               .map((kw) => Chip(
-                                    avatar: SvgPicture.string(KeyWIcon.keyWSVG, height: 20, width: 20),
+                                    avatar: SvgPicture.string(KeyWIcon.keyWSVG,
+                                        height: 20, width: 20),
                                     label: Text(kw),
-                                    backgroundColor: const Color(0xFF3B6332).withOpacity(0.1),
-                  
+                                    backgroundColor: const Color(0xFF3B6332)
+                                        .withOpacity(0.1),
                                   ))
                               .toList(),
                         ),
@@ -192,7 +197,8 @@ class _CollectionEventDetailScreenState
                             padding: const EdgeInsets.all(12),
                             child: Row(
                               children: [
-                                const Icon(Icons.timer, color: Color.fromARGB(255, 209, 102, 100)),
+                                const Icon(Icons.timer,
+                                    color: Color.fromARGB(255, 209, 102, 100)),
                                 const SizedBox(width: 8),
                                 Text(
                                   'Còn ${_calculateTimeLeft(endAt)}',
@@ -237,11 +243,13 @@ class _CollectionEventDetailScreenState
                     tabs: const [
                       Tab(
                         icon: Icon(Icons.feed, color: Color(0xFF3B6332)),
-                        child: Text('Bài đăng', style: TextStyle(color: Color(0xFF3B6332))),
+                        child: Text('Bài đăng',
+                            style: TextStyle(color: Color(0xFF3B6332))),
                       ),
                       Tab(
                         icon: Icon(Icons.leaderboard, color: Color(0xFF3B6332)),
-                        child: Text('Bảng xếp hạng', style: TextStyle(color: Color(0xFF3B6332))),
+                        child: Text('Bảng xếp hạng',
+                            style: TextStyle(color: Color(0xFF3B6332))),
                       ),
                     ],
                   ),
@@ -253,8 +261,8 @@ class _CollectionEventDetailScreenState
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildSubmissionsFeed(widget.eventId),
-                    _buildLeaderboard(widget.eventId),
+                    _KeepAlive(child: _buildSubmissionsFeed(widget.eventId)),
+                    _KeepAlive(child: _buildLeaderboard(widget.eventId)),
                   ],
                 ),
               ),
@@ -281,8 +289,10 @@ class _CollectionEventDetailScreenState
           return FloatingActionButton.extended(
             onPressed: () =>
                 _showSubmissionDialog(context, widget.eventId, eventData),
-            icon: const Icon(Icons.add_photo_alternate),
-            label: const Text('Đăng bài'),
+            icon: const Icon(Icons.add_photo_alternate, color: Color(0xFF3B6332)),
+            label: const Text('Đăng bài', style: TextStyle(color: Color(0xFF3B6332), fontWeight: FontWeight.bold)),
+            focusColor: const Color(0xFF3B6332),
+            backgroundColor: const Color.fromARGB(196, 255, 209, 102),
           );
         },
       ),
@@ -291,7 +301,7 @@ class _CollectionEventDetailScreenState
 
   Widget _buildSubmissionsFeed(String eventId) {
     final user = FirebaseAuth.instance.currentUser;
-    
+
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('collect_events')
@@ -300,7 +310,9 @@ class _CollectionEventDetailScreenState
           .where('isValid', isEqualTo: true)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        // Show spinner only on first load to avoid flicker on updates
+        if (!snapshot.hasData &&
+            snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
@@ -352,30 +364,35 @@ class _CollectionEventDetailScreenState
         });
 
         return ListView.builder(
+          key: PageStorageKey('submissions_$eventId'),
           padding: const EdgeInsets.all(12),
           itemCount: submissions.length,
           itemBuilder: (context, index) {
             final doc = submissions[index];
             final data = doc.data() as Map<String, dynamic>;
             final likedBy = List<String>.from(data['likedBy'] ?? []);
-            final hasLiked = user != null && likedBy.contains(user.uid);
+            final currentLiked = user != null && likedBy.contains(user.uid);
+            final displayedLiked = _optimisticLiked[doc.id] ?? currentLiked;
+            final likesCount = ((data['likes'] ?? 0) as int) +
+                (_optimisticLikeDelta[doc.id] ?? 0);
+            final scoreCount = ((data['score'] ?? 0) as int) +
+                (_optimisticScoreDelta[doc.id] ?? 0);
+
+            // Clear optimistic override once stream reflects true state
+            _reconcileOptimisticForSubmission(doc.id, currentLiked);
 
             return Card(
+              key: ValueKey(doc.id),
               margin: const EdgeInsets.only(bottom: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // User info
                   ListTile(
-                    leading: CircleAvatar(
-                      backgroundImage: data['userAvatar'] != null &&
-                              data['userAvatar'].toString().isNotEmpty
-                          ? NetworkImage(data['userAvatar'])
-                          : null,
-                      child: data['userAvatar'] == null ||
-                              data['userAvatar'].toString().isEmpty
-                          ? const Icon(Icons.person)
-                          : null,
+                    leading: _buildAvatar(
+                      data['userAvatar'],
+                      size: 40,
+                      iconSize: 20,
                     ),
                     title: Text(data['userName'] ?? 'Unknown'),
                     subtitle:
@@ -428,16 +445,20 @@ class _CollectionEventDetailScreenState
                     child: Row(
                       children: [
                         _buildInteractionButton(
-                          icon: hasLiked ? Icons.favorite : Icons.favorite_border,
-                          count: (data['likes'] ?? 0) as int,
-                          onTap: hasLiked ? null : () => _likeSubmission(eventId, doc.id),
-                          color: hasLiked ? Colors.red : null,
+                          icon: displayedLiked
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          count: likesCount,
+                          onTap: () =>
+                              _onTapLike(eventId, doc.id, displayedLiked),
+                          color: displayedLiked ? Colors.red : null,
                         ),
                         const SizedBox(width: 16),
                         _buildInteractionButton(
                           icon: Icons.comment_outlined,
                           count: (data['comments'] ?? 0) as int,
-                          onTap: () => _showCommentsDialog(eventId, doc.id, data),
+                          onTap: () =>
+                              _showCommentsDialog(eventId, doc.id, data),
                         ),
                         const SizedBox(width: 16),
                         _buildInteractionButton(
@@ -447,7 +468,7 @@ class _CollectionEventDetailScreenState
                         ),
                         const Spacer(),
                         Text(
-                          '${data['score'] ?? 0} điểm',
+                          '$scoreCount điểm',
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, color: Colors.blue),
                         ),
@@ -472,7 +493,9 @@ class _CollectionEventDetailScreenState
           .limit(50)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        // Show spinner only on first load to avoid flicker on updates
+        if (!snapshot.hasData &&
+            snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
@@ -519,6 +542,7 @@ class _CollectionEventDetailScreenState
         });
 
         return ListView.builder(
+          key: PageStorageKey('leaderboard_$eventId'),
           padding: const EdgeInsets.all(12),
           itemCount: entries.length,
           itemBuilder: (context, index) {
@@ -598,7 +622,31 @@ class _CollectionEventDetailScreenState
     );
   }
 
-  Future<void> _likeSubmission(String eventId, String submissionId) async {
+  Widget _buildAvatar(dynamic url, {double size = 40, double iconSize = 20}) {
+    final link = (url ?? '').toString();
+    if (link.isEmpty) {
+      return CircleAvatar(
+        radius: size / 2,
+        child: Icon(Icons.person, size: iconSize),
+      );
+    }
+
+    return ClipOval(
+      child: Image.network(
+        link,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => CircleAvatar(
+          radius: size / 2,
+          child: Icon(Icons.person, size: iconSize),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleLike(
+      String eventId, String submissionId, bool isCurrentlyLiked) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -607,55 +655,98 @@ class _CollectionEventDetailScreenState
       return;
     }
 
+    String action = 'none';
+
     try {
-      // Check if already liked
-      final submissionDoc = await FirebaseFirestore.instance
-          .collection('collect_events')
-          .doc(eventId)
-          .collection('submissions')
-          .doc(submissionId)
-          .get();
-
-      if (!submissionDoc.exists) return;
-
-      final likedBy = List<String>.from(submissionDoc.data()?['likedBy'] ?? []);
-      
-      if (likedBy.contains(user.uid)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bạn đã like bài này rồi')),
-        );
-        return;
-      }
-
-      // Add like
-      await FirebaseFirestore.instance
-          .collection('collect_events')
-          .doc(eventId)
-          .collection('submissions')
-          .doc(submissionId)
-          .update({
-        'likes': FieldValue.increment(1),
-        'score': FieldValue.increment(1),
-        'likedBy': FieldValue.arrayUnion([user.uid]),
-      });
-
-      // Update leaderboard
-      final submission = submissionDoc.data();
-      final userId = submission?['userId'];
-      final userName = submission?['userName'];
-      if (userId != null) {
-        await FirebaseFirestore.instance
+      await FirebaseFirestore.instance.runTransaction((txn) async {
+        final submissionRef = FirebaseFirestore.instance
             .collection('collect_events')
             .doc(eventId)
-            .collection('leaderboard')
-            .doc(userId)
-            .set({
-          'userName': userName ?? 'Unknown',
-          'totalScore': FieldValue.increment(1),
-          'submissionCount': FieldValue.increment(0),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      }
+            .collection('submissions')
+            .doc(submissionId);
+
+        final snapshot = await txn.get(submissionRef);
+        if (!snapshot.exists) return;
+
+        final data = snapshot.data() as Map<String, dynamic>;
+        final likedBy = List<String>.from(data['likedBy'] ?? []);
+        final alreadyLiked = likedBy.contains(user.uid);
+
+        // Prevent double-like / double-unlike mismatches
+        if (isCurrentlyLiked && !alreadyLiked) return;
+        if (!isCurrentlyLiked && alreadyLiked) {
+          // Unlike: remove user, decrement like & score
+          txn.update(submissionRef, {
+            'likes': FieldValue.increment(-1),
+            'score': FieldValue.increment(-1),
+            'likedBy': FieldValue.arrayRemove([user.uid]),
+          });
+
+          final authorId = data['userId'];
+          final authorName = data['userName'];
+          if (authorId != null) {
+            final leaderboardRef = FirebaseFirestore.instance
+                .collection('collect_events')
+                .doc(eventId)
+                .collection('leaderboard')
+                .doc(authorId);
+
+            txn.set(
+                leaderboardRef,
+                {
+                  'userName': authorName ?? 'Unknown',
+                  'totalScore': FieldValue.increment(-1),
+                  'submissionCount': FieldValue.increment(0),
+                  'updatedAt': FieldValue.serverTimestamp(),
+                },
+                SetOptions(merge: true));
+          }
+
+          action = 'unliked';
+          return;
+        }
+
+        if (!isCurrentlyLiked && !alreadyLiked) {
+          // Like: add user, increment like & score
+          txn.update(submissionRef, {
+            'likes': FieldValue.increment(1),
+            'score': FieldValue.increment(1),
+            'likedBy': FieldValue.arrayUnion([user.uid]),
+          });
+
+          final authorId = data['userId'];
+          final authorName = data['userName'];
+          if (authorId != null) {
+            final leaderboardRef = FirebaseFirestore.instance
+                .collection('collect_events')
+                .doc(eventId)
+                .collection('leaderboard')
+                .doc(authorId);
+
+            txn.set(
+                leaderboardRef,
+                {
+                  'userName': authorName ?? 'Unknown',
+                  'totalScore': FieldValue.increment(1),
+                  'submissionCount': FieldValue.increment(0),
+                  'updatedAt': FieldValue.serverTimestamp(),
+                },
+                SetOptions(merge: true));
+          }
+
+          action = 'liked';
+        }
+      });
+
+      if (!mounted || action == 'none') return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(action == 'liked'
+              ? 'Đã thích (+1 điểm)'
+              : 'Đã bỏ thích (-1 điểm)'),
+        ),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -665,8 +756,167 @@ class _CollectionEventDetailScreenState
     }
   }
 
-  Future<void> _showCommentsDialog(
-      String eventId, String submissionId, Map<String, dynamic> submissionData) async {
+  void _onTapLike(
+      String eventId, String submissionId, bool displayedLiked) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bạn cần đăng nhập để like')),
+      );
+      return;
+    }
+
+    if (_likeInFlight.contains(submissionId)) return;
+
+    final delta = displayedLiked ? -1 : 1; // if liked, next tap unlikes
+    final newLiked = !displayedLiked;
+
+    // Optimistic UI update
+    _likeInFlight.add(submissionId);
+    setState(() {
+      _optimisticLiked[submissionId] = newLiked;
+      _optimisticLikeDelta[submissionId] =
+          (_optimisticLikeDelta[submissionId] ?? 0) + delta;
+      _optimisticScoreDelta[submissionId] =
+          (_optimisticScoreDelta[submissionId] ?? 0) + delta;
+    });
+
+    try {
+      await _toggleLike(eventId, submissionId, displayedLiked);
+    } catch (e) {
+      // Rollback optimistic update on error
+      if (mounted) {
+        setState(() {
+          _optimisticLiked.remove(submissionId);
+          _optimisticLikeDelta[submissionId] = 0;
+          _optimisticScoreDelta[submissionId] = 0;
+        });
+      }
+    } finally {
+      _likeInFlight.remove(submissionId);
+    }
+  }
+
+  void _reconcileOptimisticForSubmission(
+      String submissionId, bool currentLiked) {
+    final optimistic = _optimisticLiked[submissionId];
+    if (optimistic == null) return;
+    if (optimistic == currentLiked) {
+      // Firestore caught up; clear overrides
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _optimisticLiked.remove(submissionId);
+          _optimisticLikeDelta[submissionId] = 0;
+          _optimisticScoreDelta[submissionId] = 0;
+        });
+      });
+    }
+  }
+
+  Future<void> _confirmDeleteComment(String eventId, String submissionId,
+      String commentId, Map<String, dynamic> submissionData) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xóa bình luận?'),
+        content: const Text('Bạn có chắc muốn xóa bình luận này?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete == true) {
+      await _deleteComment(eventId, submissionId, commentId, submissionData);
+    }
+  }
+
+  Future<void> _deleteComment(String eventId, String submissionId,
+      String commentId, Map<String, dynamic> submissionData) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bạn cần đăng nhập để xóa bình luận')),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseFirestore.instance.runTransaction((txn) async {
+        final commentRef = FirebaseFirestore.instance
+            .collection('collect_events')
+            .doc(eventId)
+            .collection('submissions')
+            .doc(submissionId)
+            .collection('comments')
+            .doc(commentId);
+
+        final commentSnap = await txn.get(commentRef);
+        if (!commentSnap.exists) return;
+
+        final commentData = commentSnap.data() as Map<String, dynamic>;
+        if (commentData['userId'] != user.uid) {
+          throw Exception('Không thể xóa bình luận của người khác');
+        }
+
+        txn.delete(commentRef);
+
+        final submissionRef = FirebaseFirestore.instance
+            .collection('collect_events')
+            .doc(eventId)
+            .collection('submissions')
+            .doc(submissionId);
+
+        txn.update(submissionRef, {
+          'comments': FieldValue.increment(-1),
+          'score': FieldValue.increment(-2),
+        });
+
+        final authorId = submissionData['userId'];
+        final authorName = submissionData['userName'];
+        if (authorId != null) {
+          final leaderboardRef = FirebaseFirestore.instance
+              .collection('collect_events')
+              .doc(eventId)
+              .collection('leaderboard')
+              .doc(authorId);
+
+          txn.set(
+              leaderboardRef,
+              {
+                'userName': authorName ?? 'Unknown',
+                'totalScore': FieldValue.increment(-2),
+                'submissionCount': FieldValue.increment(0),
+                'updatedAt': FieldValue.serverTimestamp(),
+              },
+              SetOptions(merge: true));
+        }
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã xóa bình luận (-2 điểm)')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi khi xóa bình luận: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showCommentsDialog(String eventId, String submissionId,
+      Map<String, dynamic> submissionData) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -694,7 +944,7 @@ class _CollectionEventDetailScreenState
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const Divider(),
-              
+
               // Comments list
               Expanded(
                 child: StreamBuilder<QuerySnapshot>(
@@ -723,32 +973,43 @@ class _CollectionEventDetailScreenState
                       itemCount: snapshot.data!.docs.length,
                       itemBuilder: (context, index) {
                         final commentDoc = snapshot.data!.docs[index];
-                        final comment = commentDoc.data() as Map<String, dynamic>;
+                        final comment =
+                            commentDoc.data() as Map<String, dynamic>;
+                        final isOwner = user.uid == comment['userId'];
 
                         return ListTile(
-                          leading: CircleAvatar(
-                            backgroundImage: comment['userAvatar'] != null &&
-                                    comment['userAvatar'].toString().isNotEmpty
-                                ? NetworkImage(comment['userAvatar'])
-                                : null,
-                            child: comment['userAvatar'] == null ||
-                                    comment['userAvatar'].toString().isEmpty
-                                ? const Icon(Icons.person, size: 20)
-                                : null,
+                          leading: _buildAvatar(
+                            comment['userAvatar'],
+                            size: 36,
+                            iconSize: 18,
                           ),
                           title: Text(comment['userName'] ?? 'Unknown',
-                              style: const TextStyle(fontWeight: FontWeight.bold)),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(comment['comment'] ?? ''),
                               const SizedBox(height: 4),
                               Text(
-                                _formatTimestamp(comment['createdAt'] as Timestamp?),
-                                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                _formatTimestamp(
+                                    comment['createdAt'] as Timestamp?),
+                                style: const TextStyle(
+                                    fontSize: 11, color: Colors.grey),
                               ),
                             ],
                           ),
+                          trailing: isOwner
+                              ? IconButton(
+                                  icon: const Icon(Icons.delete_outline),
+                                  onPressed: () => _confirmDeleteComment(
+                                    eventId,
+                                    submissionId,
+                                    commentDoc.id,
+                                    submissionData,
+                                  ),
+                                )
+                              : null,
                         );
                       },
                     );
@@ -757,7 +1018,7 @@ class _CollectionEventDetailScreenState
               ),
 
               const Divider(),
-              
+
               // Comment input
               Padding(
                 padding: EdgeInsets.only(
@@ -781,7 +1042,8 @@ class _CollectionEventDetailScreenState
                       onPressed: () async {
                         if (commentController.text.trim().isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Vui lòng nhập bình luận')),
+                            const SnackBar(
+                                content: Text('Vui lòng nhập bình luận')),
                           );
                           return;
                         }
@@ -831,10 +1093,11 @@ class _CollectionEventDetailScreenState
                           }
 
                           commentController.clear();
-                          
+
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Đã bình luận (+2 điểm)')),
+                              const SnackBar(
+                                  content: Text('Đã bình luận (+2 điểm)')),
                             );
                           }
                         } catch (e) {
@@ -856,8 +1119,8 @@ class _CollectionEventDetailScreenState
     );
   }
 
-  Future<void> _shareSubmission(
-      String eventId, String submissionId, Map<String, dynamic> submissionData) async {
+  Future<void> _shareSubmission(String eventId, String submissionId,
+      Map<String, dynamic> submissionData) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -971,4 +1234,24 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(_SliverAppBarDelegate oldDelegate) => false;
+}
+
+class _KeepAlive extends StatefulWidget {
+  final Widget child;
+  const _KeepAlive({required this.child});
+
+  @override
+  State<_KeepAlive> createState() => _KeepAliveState();
+}
+
+class _KeepAliveState extends State<_KeepAlive>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
 }

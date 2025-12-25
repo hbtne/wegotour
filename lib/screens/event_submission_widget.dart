@@ -4,7 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:stour/services/vision_api_service.dart';
-import 'package:stour/services/cloudinary_service.dart'; // ✅ Import Cloudinary
+import 'package:stour/services/cloudinary_service.dart'; 
+import 'package:stour/assets/icons/send_svg.dart' as sendIcon;
+import 'package:flutter_svg/flutter_svg.dart';
 
 class EventSubmissionScreen extends StatefulWidget {
   final String eventId;
@@ -242,7 +244,9 @@ class _EventSubmissionScreenState extends State<EventSubmissionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Đăng bài tham gia'),
+        title: const Text('Đăng bài tham gia',
+            style: TextStyle(
+                fontWeight: FontWeight.bold, color: Color(0xFF3B6332))),
         actions: [
           if (_selectedImage != null && _validationResult?['isValid'] == true)
             TextButton(
@@ -254,9 +258,7 @@ class _EventSubmissionScreenState extends State<EventSubmissionScreen> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('Đăng',
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold)),
+                  :  SvgPicture.string(sendIcon.sendSVG, height: 40, width: 40),
             ),
         ],
       ),
@@ -278,7 +280,9 @@ class _EventSubmissionScreenState extends State<EventSubmissionScreen> {
                         Icon(Icons.info_outline, color: Colors.blue),
                         SizedBox(width: 8),
                         Text('Yêu cầu ảnh',
-                            style: TextStyle(fontWeight: FontWeight.bold)),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF3B6332))),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -339,7 +343,7 @@ class _EventSubmissionScreenState extends State<EventSubmissionScreen> {
                       children: [
                         CircularProgressIndicator(),
                         SizedBox(width: 16),
-                        Text('🔍 Đang kiểm tra ảnh với AI...'),
+                        Text('Đợi Wee kiểm tra ảnh 1 xíu nha...'),
                       ],
                     ),
                   ),
@@ -379,7 +383,7 @@ class _EventSubmissionScreenState extends State<EventSubmissionScreen> {
                             (_validationResult!['matchedKeywords'] as List)
                                 .isNotEmpty) ...[
                           const SizedBox(height: 8),
-                          const Text('✅ Từ khóa tìm thấy:',
+                          const Text('Từ khóa tìm thấy:',
                               style: TextStyle(fontSize: 12)),
                           const SizedBox(height: 4),
                           Wrap(
@@ -401,7 +405,7 @@ class _EventSubmissionScreenState extends State<EventSubmissionScreen> {
                             (_validationResult!['detectedLabels'] as List)
                                 .isNotEmpty) ...[
                           const SizedBox(height: 8),
-                          const Text('🔍 AI phát hiện:',
+                          const Text('Wee thấy ảnh của bạn có:',
                               style:
                                   TextStyle(fontSize: 11, color: Colors.grey)),
                           const SizedBox(height: 4),
@@ -425,10 +429,15 @@ class _EventSubmissionScreenState extends State<EventSubmissionScreen> {
                     child: OutlinedButton.icon(
                       onPressed: () => _pickImage(ImageSource.camera),
                       icon: const Icon(Icons.camera_alt),
-                      label: const Text('Chụp ảnh'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      label: const Text(
+                        'Chụp ảnh',
+                        style: TextStyle(color: Color(0xFF3B6332)),
                       ),
+                      style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          iconColor: const Color(0xFF3B6332),
+                          backgroundColor:
+                              const Color.fromARGB(215, 255, 209, 102)),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -436,10 +445,13 @@ class _EventSubmissionScreenState extends State<EventSubmissionScreen> {
                     child: OutlinedButton.icon(
                       onPressed: () => _pickImage(ImageSource.gallery),
                       icon: const Icon(Icons.photo_library),
-                      label: const Text('Thư viện'),
+                      label: const Text('Thư viện',
+                          style: TextStyle(color: Color(0xFF3B6332))),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          iconColor: const Color(0xFF3B6332),
+                          backgroundColor:
+                              const Color.fromARGB(215, 255, 209, 102)),
                     ),
                   ),
                 ],
@@ -451,11 +463,19 @@ class _EventSubmissionScreenState extends State<EventSubmissionScreen> {
             // Caption
             TextField(
               controller: _captionController,
-              decoration: const InputDecoration(
+              cursorColor: const Color(0xFF3B6332),
+              focusNode: FocusNode(),
+              decoration: InputDecoration(
                 labelText: 'Mô tả bài đăng (tùy chọn)',
                 hintText: 'Viết gì đó về ảnh của bạn...',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.edit),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF3B6332))),
+                prefixIcon: const Icon(
+                  Icons.edit,
+                  color: Color(0xFF3B6332),
+                ),
+                iconColor: const Color(0xFF3B6332),
+                focusColor: const Color(0xFF3B6332),
               ),
               maxLines: 3,
               maxLength: 500,
