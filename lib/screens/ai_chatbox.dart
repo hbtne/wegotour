@@ -79,7 +79,8 @@ class _AIChatScreenState extends State<AIChatScreen> {
       if (!_speechAvailable) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Micro không khả dụng trên thiết bị này')),
+            const SnackBar(
+                content: Text('Micro không khả dụng trên thiết bị này')),
           );
         }
         return;
@@ -118,8 +119,8 @@ class _AIChatScreenState extends State<AIChatScreen> {
 
   Future<void> _pickImage() async {
     try {
-      final XFile? picked =
-          await _picker.pickImage(source: ImageSource.gallery, imageQuality: 75);
+      final XFile? picked = await _picker.pickImage(
+          source: ImageSource.gallery, imageQuality: 75);
       if (picked != null) {
         if (mounted) setState(() => _pickedImage = File(picked.path));
       }
@@ -130,8 +131,10 @@ class _AIChatScreenState extends State<AIChatScreen> {
 
   // Remove diacritics (Vietnamese-friendly) to improve matching
   String _removeDiacritics(String str) {
-    final withDia = 'àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ';
-    final noDia   = 'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd';
+    final withDia =
+        'àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ';
+    final noDia =
+        'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd';
     var s = str;
     for (var i = 0; i < withDia.length; i++) {
       s = s.replaceAll(withDia[i], noDia[i]);
@@ -166,11 +169,8 @@ class _AIChatScreenState extends State<AIChatScreen> {
     for (var i = 1; i <= la; i++) {
       for (var j = 1; j <= lb; j++) {
         final cost = a.codeUnitAt(i - 1) == b.codeUnitAt(j - 1) ? 0 : 1;
-        dp[i][j] = [
-          dp[i - 1][j] + 1,
-          dp[i][j - 1] + 1,
-          dp[i - 1][j - 1] + cost
-        ].reduce((v, e) => v < e ? v : e);
+        dp[i][j] = [dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost]
+            .reduce((v, e) => v < e ? v : e);
       }
     }
     return dp[la][lb];
@@ -209,7 +209,10 @@ class _AIChatScreenState extends State<AIChatScreen> {
     }
 
     final avgBest = sumBest / candTokens.length;
-    final ratio = matched / (placeTokens.length > candTokens.length ? placeTokens.length : candTokens.length);
+    final ratio = matched /
+        (placeTokens.length > candTokens.length
+            ? placeTokens.length
+            : candTokens.length);
     // combine average best token similarity and matched token ratio
     return (avgBest * 0.6) + (ratio * 0.4);
   }
@@ -235,23 +238,28 @@ class _AIChatScreenState extends State<AIChatScreen> {
       if (rawName.isEmpty) continue;
       final nname = _normalize(rawName);
 
-      if (kDebugMode) print('Comparing place: "$rawName" -> normalized: "$nname"');
+      if (kDebugMode)
+        print('Comparing place: "$rawName" -> normalized: "$nname"');
 
       for (final cand in normCandidates) {
         if (cand.isEmpty) continue;
         final stringSim = _similarity(cand, nname); // whole-string similarity
-        final tokenScore = _tokenOverlapScore(cand, nname); // token overlap heuristic
+        final tokenScore =
+            _tokenOverlapScore(cand, nname); // token overlap heuristic
         // combined score: weight whole-string similarity more but token helps bilingual / partial matches
         final combined = (stringSim * 0.6) + (tokenScore * 0.4);
 
         if (kDebugMode) {
-          print('  candidate="$cand" vs name="$nname" => stringSim=${stringSim.toStringAsFixed(3)}, tokenScore=${tokenScore.toStringAsFixed(3)}, combined=${combined.toStringAsFixed(3)}');
+          print(
+              '  candidate="$cand" vs name="$nname" => stringSim=${stringSim.toStringAsFixed(3)}, tokenScore=${tokenScore.toStringAsFixed(3)}, combined=${combined.toStringAsFixed(3)}');
         }
 
         // relax: accept single very-high token match even if combined slightly lower
         final containsRelax = cand.contains(nname) || nname.contains(cand);
 
-        final accepted = combined >= combinedThreshold || (combined >= 0.7 && containsRelax) || tokenScore >= 0.85;
+        final accepted = combined >= combinedThreshold ||
+            (combined >= 0.7 && containsRelax) ||
+            tokenScore >= 0.85;
 
         if (accepted && combined > bestScore) {
           bestScore = combined;
@@ -282,7 +290,8 @@ class _AIChatScreenState extends State<AIChatScreen> {
             }
           }
           if (kDebugMode) {
-            print('  -> selected current best: "$rawName" with score=${bestScore.toStringAsFixed(3)}');
+            print(
+                '  -> selected current best: "$rawName" with score=${bestScore.toStringAsFixed(3)}');
           }
         }
       }
@@ -290,7 +299,8 @@ class _AIChatScreenState extends State<AIChatScreen> {
 
     if (kDebugMode) {
       if (bestPlace != null) {
-        print('Best matched place FINAL: ${bestPlace.name}, score=${bestScore.toStringAsFixed(3)}');
+        print(
+            'Best matched place FINAL: ${bestPlace.name}, score=${bestScore.toStringAsFixed(3)}');
       } else {
         print('No matching place found for candidates.');
       }
@@ -301,7 +311,10 @@ class _AIChatScreenState extends State<AIChatScreen> {
   Future<Map<String, dynamic>> _analyzeImageAndCandidates(File image) async {
     if (_googleVisionApiKey.trim().isEmpty) {
       if (kDebugMode) print('Vision API key not set. Skipping cloud analysis.');
-      return {'summary': 'Google Vision API key not provided.', 'candidates': <String>[]};
+      return {
+        'summary': 'Google Vision API key not provided.',
+        'candidates': <String>[]
+      };
     }
 
     final bytes = await image.readAsBytes();
@@ -312,7 +325,8 @@ class _AIChatScreenState extends State<AIChatScreen> {
     }
 
     final base64Image = base64Encode(bytes);
-    final uri = Uri.parse('https://vision.googleapis.com/v1/images:annotate?key=$_googleVisionApiKey');
+    final uri = Uri.parse(
+        'https://vision.googleapis.com/v1/images:annotate?key=$_googleVisionApiKey');
 
     final requestBody = {
       "requests": [
@@ -329,14 +343,17 @@ class _AIChatScreenState extends State<AIChatScreen> {
     };
 
     final headers = <String, String>{'Content-Type': 'application/json'};
-    if (_androidPackage.isNotEmpty) headers['X-Android-Package'] = _androidPackage;
+    if (_androidPackage.isNotEmpty)
+      headers['X-Android-Package'] = _androidPackage;
     if (_androidSha1.isNotEmpty) headers['X-Android-Cert'] = _androidSha1;
 
-    final resp = await http.post(uri, headers: headers, body: jsonEncode(requestBody));
+    final resp =
+        await http.post(uri, headers: headers, body: jsonEncode(requestBody));
 
     if (kDebugMode && resp.statusCode != 200) {
       try {
-        if (resp.body.isNotEmpty) print('Vision API response body: ${resp.body}');
+        if (resp.body.isNotEmpty)
+          print('Vision API response body: ${resp.body}');
       } catch (_) {}
     }
 
@@ -367,19 +384,30 @@ class _AIChatScreenState extends State<AIChatScreen> {
 
     final web = annotations['webDetection'] as Map<String, dynamic>?;
     if (web != null) {
-      final bestGuess = (web['bestGuessLabels'] as List<dynamic>?)?.map((b) => b['label']).whereType<String>().toList();
+      final bestGuess = (web['bestGuessLabels'] as List<dynamic>?)
+          ?.map((b) => b['label'])
+          .whereType<String>()
+          .toList();
       if (bestGuess != null && bestGuess.isNotEmpty) {
         parts.add('Best guess: ${bestGuess.join(', ')}');
         candidates.addAll(bestGuess);
       }
-      final webEntities = (web['webEntities'] as List<dynamic>?)?.map((e) => e['description']).whereType<String>().take(5).toList();
+      final webEntities = (web['webEntities'] as List<dynamic>?)
+          ?.map((e) => e['description'])
+          .whereType<String>()
+          .take(5)
+          .toList();
       if (webEntities != null && webEntities.isNotEmpty) {
         parts.add('Web entities: ${webEntities.join(', ')}');
         candidates.addAll(webEntities);
       }
     }
 
-    final labels = (annotations['labelAnnotations'] as List<dynamic>?)?.map((l) => '${l['description']} (${(l['score'] ?? 0).toStringAsFixed(2)})').take(5).toList();
+    final labels = (annotations['labelAnnotations'] as List<dynamic>?)
+        ?.map((l) =>
+            '${l['description']} (${(l['score'] ?? 0).toStringAsFixed(2)})')
+        .take(5)
+        .toList();
     if (labels != null && labels.isNotEmpty) {
       parts.add('Labels: ${labels.join(', ')}');
       for (var l in labels) {
@@ -388,20 +416,30 @@ class _AIChatScreenState extends State<AIChatScreen> {
       }
     }
 
-    final logos = (annotations['logoAnnotations'] as List<dynamic>?)?.map((l) => l['description']).whereType<String>().toList();
+    final logos = (annotations['logoAnnotations'] as List<dynamic>?)
+        ?.map((l) => l['description'])
+        .whereType<String>()
+        .toList();
     if (logos != null && logos.isNotEmpty) {
       parts.add('Logos: ${logos.join(', ')}');
       candidates.addAll(logos);
     }
 
-    final summary = parts.isEmpty ? 'No strong visual matches found.' : parts.join('. ');
-    final uniqueCandidates = candidates.map((c) => c.trim()).where((c) => c.isNotEmpty).toSet().toList();
+    final summary =
+        parts.isEmpty ? 'No strong visual matches found.' : parts.join('. ');
+    final uniqueCandidates = candidates
+        .map((c) => c.trim())
+        .where((c) => c.isNotEmpty)
+        .toSet()
+        .toList();
 
-    if (kDebugMode) print('Vision returned candidates (unique): $uniqueCandidates');
+    if (kDebugMode)
+      print('Vision returned candidates (unique): $uniqueCandidates');
     return {'summary': summary, 'candidates': uniqueCandidates};
   }
 
-  Future<void> _scrollToEnd({Duration duration = const Duration(milliseconds: 300)}) async {
+  Future<void> _scrollToEnd(
+      {Duration duration = const Duration(milliseconds: 300)}) async {
     if (!_scrollController.hasClients) return;
     try {
       _scrollController.animateTo(
@@ -423,11 +461,8 @@ class _AIChatScreenState extends State<AIChatScreen> {
       _messages.add({'role': 'user', 'content': text});
     }
     if (_pickedImage != null) {
-      _messages.add({
-        'role': 'user',
-        'content': '[Image]',
-        'image': _pickedImage!.path
-      });
+      _messages.add(
+          {'role': 'user', 'content': '[Image]', 'image': _pickedImage!.path});
     }
 
     if (mounted) {
@@ -449,7 +484,9 @@ class _AIChatScreenState extends State<AIChatScreen> {
 
         // If this image is already being processed, skip duplicate analysis
         if (_processingImagePaths.contains(imagePath)) {
-          if (kDebugMode) print('Image already processing: $imagePath — skipping duplicate call.');
+          if (kDebugMode)
+            print(
+                'Image already processing: $imagePath — skipping duplicate call.');
           if (mounted) setState(() => _isLoading = false);
           return;
         }
@@ -462,7 +499,8 @@ class _AIChatScreenState extends State<AIChatScreen> {
         try {
           final res = await _analyzeImageAndCandidates(_pickedImage!);
           analysis = res['summary'] ?? '';
-          candidates = (res['candidates'] as List<dynamic>?)?.cast<String>() ?? <String>[];
+          candidates = (res['candidates'] as List<dynamic>?)?.cast<String>() ??
+              <String>[];
         } catch (e) {
           if (kDebugMode) print('Vision analysis failed: $e');
           analysis = 'Failed to analyze image via Vision API: $e';
@@ -475,7 +513,11 @@ class _AIChatScreenState extends State<AIChatScreen> {
             m['imagePath'] == imagePath);
 
         if (!alreadyHasAnalysisMessage) {
-          _messages.add({'role': 'system', 'content': 'Image analysis: $analysis', 'imagePath': imagePath});
+          _messages.add({
+            'role': 'system',
+            'content': 'Image analysis: $analysis',
+            'imagePath': imagePath
+          });
         }
         if (candidates.isNotEmpty) {
           final alreadyHasCandidatesMsg = _messages.any((m) =>
@@ -483,7 +525,11 @@ class _AIChatScreenState extends State<AIChatScreen> {
               (m['content'] ?? '').toString().startsWith('Candidates:') &&
               m['imagePath'] == imagePath);
           if (!alreadyHasCandidatesMsg) {
-            _messages.add({'role': 'system', 'content': 'Candidates: ${candidates.join(', ')}', 'imagePath': imagePath});
+            _messages.add({
+              'role': 'system',
+              'content': 'Candidates: ${candidates.join(', ')}',
+              'imagePath': imagePath
+            });
           }
         }
 
@@ -495,11 +541,13 @@ class _AIChatScreenState extends State<AIChatScreen> {
         }
 
         if (matchedPlace != null) {
-          if (kDebugMode) print('Matched place found in _send(): ${matchedPlace.name}');
+          if (kDebugMode)
+            print('Matched place found in _send(): ${matchedPlace.name}');
           // add AI confirmation message and attach 'place' so UI shows button
           final aiMsg = {
             'role': 'ai',
-            'content': 'Mình đã nhận diện địa điểm "${matchedPlace.name}". Bạn muốn xem chi tiết chứ?',
+            'content':
+                'Mình đã nhận diện địa điểm "${matchedPlace.name}". Bạn muốn xem chi tiết chứ?',
             'place': matchedPlace,
             'imagePath': imagePath,
           };
@@ -530,7 +578,8 @@ class _AIChatScreenState extends State<AIChatScreen> {
             .toList();
 
         // append analysis as system-level context
-        sendMessages.add({'role': 'system', 'content': 'Image analysis: $analysis'});
+        sendMessages
+            .add({'role': 'system', 'content': 'Image analysis: $analysis'});
         aiResponse = await _gemini.sendMessageWithHistory(sendMessages);
 
         if (mounted) {
@@ -708,7 +757,8 @@ class _AIChatScreenState extends State<AIChatScreen> {
                               width: 80, height: 80, fit: BoxFit.cover),
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(child: Text('Ảnh đã chọn - sẵn sàng gửi')),
+                        const Expanded(
+                            child: Text('Ảnh đã chọn - sẵn sàng gửi')),
                         IconButton(
                           icon: const Icon(Icons.close),
                           onPressed: () => setState(() => _pickedImage = null),
@@ -725,7 +775,8 @@ class _AIChatScreenState extends State<AIChatScreen> {
                     IconButton(
                       icon: Icon(
                         _isListening ? Icons.mic : Icons.mic_none,
-                        color: _isListening ? Colors.red : const Color(0xFF3B6332),
+                        color:
+                            _isListening ? Colors.red : const Color(0xFF3B6332),
                       ),
                       onPressed: () async {
                         if (_isListening) {
@@ -743,7 +794,13 @@ class _AIChatScreenState extends State<AIChatScreen> {
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 12),
                           border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(30)),
+                              borderRadius: BorderRadius.circular(30),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFF3B6332))),
+                          enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFF3B6332))),
                         ),
                         onSubmitted: (_) => _send(),
                       ),

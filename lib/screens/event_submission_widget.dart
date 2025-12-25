@@ -150,7 +150,7 @@ class _EventSubmissionScreenState extends State<EventSubmissionScreen> {
         'userId': user.uid,
         'userName': userName,
         'userAvatar': userAvatar,
-        'imageUrl': imageUrl, // ✅ Cloudinary URL
+        'imageUrl': imageUrl, // 
         'caption': _captionController.text.trim(),
         'detectedLabels': _validationResult!['detectedLabels'] ?? [],
         'matchedKeywords': _validationResult!['matchedKeywords'] ?? [],
