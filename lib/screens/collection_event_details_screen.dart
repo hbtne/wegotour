@@ -25,6 +25,7 @@ class _CollectionEventDetailScreenState
   final Map<String, int> _optimisticLikeDelta = {};
   final Map<String, int> _optimisticScoreDelta = {};
   final Set<String> _likeInFlight = {};
+  final Map<String, Map<String, String>> _badgeCache = {};
 
   @override
   void initState() {
@@ -391,7 +392,7 @@ class _CollectionEventDetailScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // User info
+                  // User info (with badge)
                   ListTile(
                     leading: _buildAvatar(
                       data['userAvatar'],
@@ -399,8 +400,55 @@ class _CollectionEventDetailScreenState
                       iconSize: 20,
                     ),
                     title: Text(data['userName'] ?? 'Unknown'),
-                    subtitle:
-                        Text(_formatTimestamp(data['createdAt'] as Timestamp?)),
+                    subtitle: FutureBuilder<Map<String, String>>(
+                      future:
+                          _getBadgeForUser((data['userId'] ?? '').toString()),
+                      builder: (context, snap) {
+                        final badge = snap.data ?? {'icon': '', 'name': ''};
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if ((badge['icon'] ?? '').isNotEmpty)
+                              Row(
+                                children: [
+                                  ClipOval(
+                                    child: Image.network(
+                                      badge['icon']!,
+                                      width: 18,
+                                      height: 18,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => const Icon(
+                                        Icons.emoji_events,
+                                        size: 14,
+                                        color: Colors.amber,
+                                      ),
+                                    ),
+                                  ),
+                                  if ((badge['name'] ?? '').isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 6),
+                                      child: Text(
+                                        badge['name']!,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF2E5E2A),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            if ((badge['icon'] ?? '').isNotEmpty)
+                              const SizedBox(height: 4),
+                            Text(
+                              _formatTimestamp(data['createdAt'] as Timestamp?),
+                              style: const TextStyle(
+                                  fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                   ),
 
                   // Image
@@ -640,6 +688,48 @@ class _CollectionEventDetailScreenState
       avatarUrl: link,
       size: size,
     );
+  }
+
+  Future<Map<String, String>> _getBadgeForUser(String uid) async {
+    if (uid.isEmpty) return {'icon': '', 'name': ''};
+    if (_badgeCache.containsKey(uid)) return _badgeCache[uid]!;
+
+    try {
+      final userDoc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final selectedBadgeId = userDoc.data()?['selectedBadge'];
+      if (selectedBadgeId == null || selectedBadgeId.toString().isEmpty) {
+        _badgeCache[uid] = {'icon': '', 'name': ''};
+        return _badgeCache[uid]!;
+      }
+
+      final badgesSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('badges')
+          .get();
+
+      QueryDocumentSnapshot? matchingDoc;
+      for (var d in badgesSnapshot.docs) {
+        if (d.id.endsWith(selectedBadgeId.toString())) {
+          matchingDoc = d;
+          break;
+        }
+      }
+
+      if (matchingDoc != null) {
+        final bd = matchingDoc.data() as Map<String, dynamic>?;
+        final icon = bd?['icon'] ?? '';
+        final name = bd?['name'] ?? '';
+        _badgeCache[uid] = {'icon': icon.toString(), 'name': name.toString()};
+        return _badgeCache[uid]!;
+      }
+    } catch (e) {
+      // ignore errors
+    }
+
+    _badgeCache[uid] = {'icon': '', 'name': ''};
+    return _badgeCache[uid]!;
   }
 
   Future<void> _toggleLike(

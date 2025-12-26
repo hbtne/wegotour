@@ -118,7 +118,6 @@ class _EventSubmissionScreenState extends State<EventSubmissionScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // ✅ 1. UPLOAD ẢNH LÊN CLOUDINARY (thay vì Firebase Storage)
       print('📤 Uploading to Cloudinary...');
 
       final imageUrls =
