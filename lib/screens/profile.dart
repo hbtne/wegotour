@@ -14,6 +14,7 @@ import 'package:stour/assets/icons/locate_svg.dart' as LocateIcon;
 import 'package:stour/services/auth_service.dart';
 import 'package:stour/widgets/profile_img.dart';
 import 'package:stour/screens/addPost_screen.dart';
+import 'package:stour/widgets/avatar_with_badge.dart';
 
 import '../util/places.dart';
 
@@ -139,18 +140,31 @@ class _ProfileState extends State<Profile> {
         child: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(
-              child: ProfileImage(size: size, docId: widget.profileId),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  Center(
+                    child: AvatarWithBadge(
+                      avatarUrl: (_profileData?['avatar'] as String?) ?? null,
+                      size: 100,
+                      badgeUrl:
+                          (_selectedBadgeId != null && _badges.isNotEmpty)
+                              ? (_badges.firstWhere(
+                                  (b) => b['id'] == _selectedBadgeId,
+                                  orElse: () => {})['icon'] as String?)
+                              : null,
+                      // placeholderColor: Colors.grey.shade200,
+                    ),
+                  ),
+                ],
+              ),
             ),
-
             SliverToBoxAdapter(child: profileInfo()),
             SliverToBoxAdapter(child: profileActivity()),
-
             if (!_isLoading && _profileData != null)
               SliverToBoxAdapter(child: _buildBadgesSection()),
-
             if (!_isLoading && _profileData != null)
               SliverToBoxAdapter(child: profileEvents(size)),
-
             PostScreen(profileId: widget.profileId),
           ],
         ),
@@ -270,132 +284,130 @@ class _ProfileState extends State<Profile> {
     );
   }
 
-void _showBadgeSelectionDialog() {
-  showDialog(
-    context: context,
-    builder: (context) {
-      return Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: SizedBox(
-          // 🔑 Chiều cao tối đa theo màn hình
-          height: MediaQuery.of(context).size.height * 0.65,
-          child: Column(
-            children: [
-              const SizedBox(height: 16),
+  void _showBadgeSelectionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: SizedBox(
+            // 🔑 Chiều cao tối đa theo màn hình
+            height: MediaQuery.of(context).size.height * 0.65,
+            child: Column(
+              children: [
+                const SizedBox(height: 16),
 
-              const Text(
-                'Huy hiệu hiển thị',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF2D4D0A),
+                const Text(
+                  'Huy hiệu hiển thị',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2D4D0A),
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 12),
-              const Divider(height: 1),
+                const SizedBox(height: 12),
+                const Divider(height: 1),
 
-              /// ✅ LISTVIEW – KHÔNG OVERFLOW
-              Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: _badges.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final badge = _badges[index];
-                    final icon = badge['icon'] ?? '';
-                    final name = badge['name'] ?? 'Badge';
-                    final badgeId = badge['id'];
-                    final isSelected = badgeId == _selectedBadgeId;
+                /// ✅ LISTVIEW – KHÔNG OVERFLOW
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: _badges.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final badge = _badges[index];
+                      final icon = badge['icon'] ?? '';
+                      final name = badge['name'] ?? 'Badge';
+                      final badgeId = badge['id'];
+                      final isSelected = badgeId == _selectedBadgeId;
 
-                    return ListTile(
-                      onTap: () async {
-                        await _selectBadge(badgeId);
-                        Navigator.pop(context);
-                      },
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                          color: isSelected
-                              ? Colors.amber
-                              : Colors.grey.shade300,
-                          width: isSelected ? 2 : 1,
+                      return ListTile(
+                        onTap: () async {
+                          await _selectBadge(badgeId);
+                          Navigator.pop(context);
+                        },
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: isSelected
+                                ? Colors.amber
+                                : Colors.grey.shade300,
+                            width: isSelected ? 2 : 1,
+                          ),
                         ),
-                      ),
-                      tileColor: isSelected
-                          ? Colors.amber.shade50
-                          : Colors.grey.shade100,
-                      leading: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                        ),
-                        child: icon.isNotEmpty
-                            ? ClipOval(
-                                child: Image.network(
-                                  icon,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      const Icon(
-                                    Icons.emoji_events,
-                                    color: Colors.amber,
+                        tileColor: isSelected
+                            ? Colors.amber.shade50
+                            : Colors.grey.shade100,
+                        leading: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                          ),
+                          child: icon.isNotEmpty
+                              ? ClipOval(
+                                  child: Image.network(
+                                    icon,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.emoji_events,
+                                      color: Colors.amber,
+                                    ),
                                   ),
+                                )
+                              : const Icon(
+                                  Icons.emoji_events,
+                                  color: Colors.amber,
                                 ),
-                              )
-                            : const Icon(
-                                Icons.emoji_events,
-                                color: Colors.amber,
-                              ),
-                      ),
-                      title: Text(
-                        name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: isSelected
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                          color: const Color(0xFF2D4D0A),
                         ),
-                      ),
-                      trailing: isSelected
-                          ? const Icon(
-                              Icons.check_circle,
-                              color: Colors.amber,
-                            )
-                          : null,
-                    );
-                  },
+                        title: Text(
+                          name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: const Color(0xFF2D4D0A),
+                          ),
+                        ),
+                        trailing: isSelected
+                            ? const Icon(
+                                Icons.check_circle,
+                                color: Colors.amber,
+                              )
+                            : null,
+                      );
+                    },
+                  ),
                 ),
-              ),
 
-              const Divider(height: 1),
+                const Divider(height: 1),
 
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'Đóng',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Color(0xFF2D4D0A),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'Đóng',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Color(0xFF2D4D0A),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      );
-    },
-  );
-}
-
+        );
+      },
+    );
+  }
 
   Future<void> _selectBadge(String badgeId) async {
     try {
@@ -439,9 +451,20 @@ void _showBadgeSelectionDialog() {
             _buildEventButton("Bài viết", 0,
                 (_profileData!['posts'] as List?)?.length.toString() ?? "0"),
             TextButton(
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FriendListScreen(currentUserId: widget.profileId == AuthService.getCurrentUserId() ? widget.profileId : '',))),
-                child: _buildEventButton("Theo dõi", 1,
-                  (_profileData!['messages'] as List?)?.length.toString() ?? "0")),
+                onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => FriendListScreen(
+                              currentUserId: widget.profileId ==
+                                      AuthService.getCurrentUserId()
+                                  ? widget.profileId
+                                  : '',
+                            ))),
+                child: _buildEventButton(
+                    "Theo dõi",
+                    1,
+                    (_profileData!['messages'] as List?)?.length.toString() ??
+                        "0")),
             _buildEventButton(
                 "Lịch trình",
                 2,
@@ -543,10 +566,8 @@ void _showBadgeSelectionDialog() {
       final currentSnap = await tx.get(currentRef);
       final targetSnap = await tx.get(targetRef);
 
-      final currentFriends =
-      List<String>.from(currentSnap['friends'] ?? []);
-      final targetFriends =
-      List<String>.from(targetSnap['friends'] ?? []);
+      final currentFriends = List<String>.from(currentSnap['friends'] ?? []);
+      final targetFriends = List<String>.from(targetSnap['friends'] ?? []);
 
       final isFriend = currentFriends.contains(targetId);
 
@@ -564,7 +585,7 @@ void _showBadgeSelectionDialog() {
 
     setState(() {
       _profileData!['friends'] =
-      List<String>.from(_profileData!['friends'] ?? []);
+          List<String>.from(_profileData!['friends'] ?? []);
     });
   }
 
@@ -578,22 +599,19 @@ void _showBadgeSelectionDialog() {
     }
     return Column(
       children: [
-         Column(
-           mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                _profileData!['username'] ?? "Unknown",
-                style: TextStyle(
-                  color: Color.fromARGB(255, 35, 52, 10),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 24,
-                ),
-              ),
-              if (AuthService.getCurrentUserId() != widget.profileId) ...[
-                _friendActivity()
-              ]
-            ]
-         ),
+        Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Text(
+            _profileData!['username'] ?? "Unknown",
+            style: TextStyle(
+              color: Color.fromARGB(255, 35, 52, 10),
+              fontWeight: FontWeight.bold,
+              fontSize: 24,
+            ),
+          ),
+          if (AuthService.getCurrentUserId() != widget.profileId) ...[
+            _friendActivity()
+          ]
+        ]),
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -677,7 +695,7 @@ Future<Map<String, dynamic>> getProfileData(String docId) async {
       'username': username,
       'location': currentLocationDetail[1],
       'friends': userDoc.data()?['friends'] ?? [],
-      'messages': userDoc.data()?['messages'] ??[]
+      'messages': userDoc.data()?['messages'] ?? []
     };
   } catch (e) {
     throw Exception('Error fetching profile data: $e');

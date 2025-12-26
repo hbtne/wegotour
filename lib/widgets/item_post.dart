@@ -54,11 +54,13 @@ class PostItem extends StatefulWidget {
 class _PostItemState extends State<PostItem> {
   static final _firestore = FirebaseFirestore.instance;
   late Future<List<Map<String, dynamic>>> _placesFuture;
+  Map<String, String>? _selectedBadge;
 
   @override
   void initState() {
     super.initState();
     _placesFuture = _fetchPlacesFromIds(widget.placeIds);
+    _fetchSelectedBadge();
   }
 
   Future<List<Map<String, dynamic>>> _fetchPlacesFromIds(
@@ -70,9 +72,7 @@ class _PostItemState extends State<PostItem> {
         .where(FieldPath.documentId, whereIn: placeIds.take(10).toList())
         .get();
 
-    return query.docs
-        .map((e) => {...e.data(), 'id': e.id})
-        .toList();
+    return query.docs.map((e) => {...e.data(), 'id': e.id}).toList();
   }
 
   @override
@@ -102,116 +102,151 @@ class _PostItemState extends State<PostItem> {
 
   Widget _buildHeader(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => Profile(
-                        profileId: widget.authorId,
-                      ),
-                    ),
-                  );
-                },
-                child: CircleAvatar(
-                  radius: 24,
-                  backgroundColor: Colors.grey.shade300,
-                  backgroundImage: widget.avatar.isNotEmpty
-                      ? NetworkImage(widget.avatar)
-                      : const AssetImage('assets/default_avatar.png')
-                  as ImageProvider,
-                ),
-              ),
-              const SizedBox(width: 10),
-
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => Profile(
-                                profileId: widget.authorId,
-                              ),
-                            ),
-                          );
-                        },
-                        child: Text(
-                          widget.author,
-                          style: const TextStyle(
-                            color: Color(0xFF2E5E2A),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => Profile(
+                          profileId: widget.authorId,
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      if (widget.groupId.isNotEmpty)
+                    );
+                  },
+                  child: CircleAvatar(
+                    radius: 24,
+                    backgroundColor: Colors.grey.shade300,
+                    backgroundImage: widget.avatar.isNotEmpty
+                        ? NetworkImage(widget.avatar)
+                        : const AssetImage('assets/default_avatar.png')
+                            as ImageProvider,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
                         GestureDetector(
                           onTap: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => GroupPostScreen(
-                                  groupId: widget.groupId,
-                                  groupName: widget.groupName,
+                                builder: (_) => Profile(
+                                  profileId: widget.authorId,
                                 ),
                               ),
                             );
                           },
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.chevron_right,
-                                size: 18,
-                                color: Color(0xFF2E5E2A),
-                              ),
-                              Text(
-                                widget.groupName,
-                                style: const TextStyle(
-                                  color: Color(0xFF2E5E2A),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
+                          child: Text(
+                            widget.author,
+                            style: const TextStyle(
+                              color: Color(0xFF2E5E2A),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
                           ),
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _getTimeAgo(widget.timeAgo),
-                    style: const TextStyle(
-                      color: Color.fromARGB(173, 35, 52, 10),
-                      fontSize: 12,
+                        const SizedBox(width: 4),
+                        if (widget.groupId.isNotEmpty)
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => GroupPostScreen(
+                                    groupId: widget.groupId,
+                                    groupName: widget.groupName,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.chevron_right,
+                                  size: 18,
+                                  color: Color(0xFF2E5E2A),
+                                ),
+                                Text(
+                                  widget.groupName,
+                                  style: const TextStyle(
+                                    color: Color(0xFF2E5E2A),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                    const SizedBox(height: 4),
 
-          PopupMenuButton<String>(
-            onSelected: (v) => _handleMenu(context, v),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: "edit", child: Text("Chỉnh sửa")),
-              PopupMenuItem(value: "delete", child: Text("Xóa")),
-            ],
-          ),
-      ],)
-    );
+                    if (_selectedBadge != null &&
+                        (_selectedBadge!['icon'] ?? '').isNotEmpty)
+                      Row(
+                        children: [
+                          ClipOval(
+                            child: Image.network(
+                              _selectedBadge!['icon']!,
+                              width: 18,
+                              height: 18,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                Icons.emoji_events,
+                                size: 14,
+                                color: Colors.amber,
+                              ),
+                            ),
+                          ),
+                          if (_selectedBadge!['name']?.isNotEmpty ?? false)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 6),
+                              child: Text(
+                                _selectedBadge!['name']!,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFF2E5E2A),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+
+                    // ===== TIME =====
+                    if (_selectedBadge != null &&
+                        (_selectedBadge!['icon'] ?? '').isNotEmpty)
+                      const SizedBox(height: 2),
+                    Text(
+                      _getTimeAgo(widget.timeAgo),
+                      style: const TextStyle(
+                        color: Color.fromARGB(173, 35, 52, 10),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            PopupMenuButton<String>(
+              onSelected: (v) => _handleMenu(context, v),
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: "edit", child: Text("Chỉnh sửa")),
+                PopupMenuItem(value: "delete", child: Text("Xóa")),
+              ],
+            ),
+          ],
+        ));
   }
 
   Widget _buildContent() {
@@ -238,7 +273,8 @@ class _PostItemState extends State<PostItem> {
             widget.location,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.grey, overflow: TextOverflow.ellipsis),
+            style: const TextStyle(
+                color: Colors.grey, overflow: TextOverflow.ellipsis),
           ),
         ],
       ),
@@ -264,7 +300,7 @@ class _PostItemState extends State<PostItem> {
                     child: CircularProgressIndicator(
                       value: loadingProgress.expectedTotalBytes != null
                           ? loadingProgress.cumulativeBytesLoaded /
-                          loadingProgress.expectedTotalBytes!
+                              loadingProgress.expectedTotalBytes!
                           : null,
                     ),
                   );
@@ -314,10 +350,9 @@ class _PostItemState extends State<PostItem> {
             child: Row(
               children: [
                 widget.isLiked
-                    ? const Icon(Icons.favorite,
-                      color: Colors.red)
+                    ? const Icon(Icons.favorite, color: Colors.red)
                     : const Icon(Icons.favorite_outline,
-                      color: Color.fromARGB(255, 255, 12, 109)),
+                        color: Color.fromARGB(255, 255, 12, 109)),
                 const SizedBox(width: 5),
                 Text(widget.likes.toString()),
               ],
@@ -354,8 +389,6 @@ class _PostItemState extends State<PostItem> {
       ),
     );
   }
-
-  /// ---------------- LOGIC ----------------
 
   Future<void> _handleMenu(BuildContext context, String value) async {
     if (value == "delete") {
@@ -462,6 +495,38 @@ class _PostItemState extends State<PostItem> {
       return '${difference.inHours} giờ trước';
     } else {
       return 'Vừa xong';
+    }
+  }
+
+  Future<void> _fetchSelectedBadge() async {
+    try {
+      final userDoc =
+          await _firestore.collection('users').doc(widget.authorId).get();
+
+      final selectedBadgeId = userDoc.data()?['selectedBadge'];
+      if (selectedBadgeId == null || selectedBadgeId.toString().isEmpty) return;
+
+      final badgesSnapshot = await _firestore
+          .collection('users')
+          .doc(widget.authorId)
+          .collection('badges')
+          .get();
+
+      final matchingDoc = badgesSnapshot.docs.firstWhere(
+        (doc) => doc.id.endsWith(selectedBadgeId),
+        orElse: () => throw Exception('Badge not found'),
+      );
+
+      final data = matchingDoc.data();
+
+      setState(() {
+        _selectedBadge = {
+          'icon': data['icon'] ?? '',
+          'name': data['name'] ?? '',
+        };
+      });
+    } catch (e) {
+      print('Error fetching badge: $e');
     }
   }
 }

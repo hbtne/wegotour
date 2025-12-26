@@ -5,6 +5,7 @@ import 'package:stour/assets/icons/bio_svg.dart' as BioIcon;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:stour/assets/icons/key_w_svg.dart' as KeyWIcon;
 import 'package:share_plus/share_plus.dart';
+import 'package:stour/widgets/avatar_with_badge.dart';
 
 class CollectionEventDetailScreen extends StatefulWidget {
   final String eventId;
@@ -289,8 +290,11 @@ class _CollectionEventDetailScreenState
           return FloatingActionButton.extended(
             onPressed: () =>
                 _showSubmissionDialog(context, widget.eventId, eventData),
-            icon: const Icon(Icons.add_photo_alternate, color: Color(0xFF3B6332)),
-            label: const Text('Đăng bài', style: TextStyle(color: Color(0xFF3B6332), fontWeight: FontWeight.bold)),
+            icon:
+                const Icon(Icons.add_photo_alternate, color: Color(0xFF3B6332)),
+            label: const Text('Đăng bài',
+                style: TextStyle(
+                    color: Color(0xFF3B6332), fontWeight: FontWeight.bold)),
             focusColor: const Color(0xFF3B6332),
             backgroundColor: const Color.fromARGB(196, 255, 209, 102),
           );
@@ -625,23 +629,16 @@ class _CollectionEventDetailScreenState
   Widget _buildAvatar(dynamic url, {double size = 40, double iconSize = 20}) {
     final link = (url ?? '').toString();
     if (link.isEmpty) {
-      return CircleAvatar(
-        radius: size / 2,
-        child: Icon(Icons.person, size: iconSize),
+      return AvatarWithBadge(
+        avatarUrl: null,
+        size: size,
+        // placeholderColor: Colors.grey.shade400,
       );
     }
 
-    return ClipOval(
-      child: Image.network(
-        link,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => CircleAvatar(
-          radius: size / 2,
-          child: Icon(Icons.person, size: iconSize),
-        ),
-      ),
+    return AvatarWithBadge(
+      avatarUrl: link,
+      size: size,
     );
   }
 
