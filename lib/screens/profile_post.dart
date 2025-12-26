@@ -26,10 +26,40 @@ class _PostScreenState extends State<PostScreen> {
       return _userCache[uid]!;
     }
 
-    final doc =
-    await _firestore.collection('users').doc(uid).get();
+    final doc = await _firestore.collection('users').doc(uid).get();
 
     final data = doc.data() ?? {};
+
+    try {
+      final selectedBadgeId = data['selectedBadge'];
+      if (selectedBadgeId != null && selectedBadgeId.toString().isNotEmpty) {
+        final badgesSnapshot = await _firestore
+            .collection('users')
+            .doc(uid)
+            .collection('badges')
+            .get();
+
+        // find a badge doc whose id ends with the selectedBadgeId
+        QueryDocumentSnapshot? matchingDoc;
+        for (var d in badgesSnapshot.docs) {
+          if (d.id.endsWith(selectedBadgeId.toString())) {
+            matchingDoc = d;
+            break;
+          }
+        }
+
+        if (matchingDoc != null) {
+          final badgeData = matchingDoc.data() as Map<String, dynamic>?;
+          if (badgeData != null) {
+            data['selectedBadgeIcon'] = badgeData['icon'] ?? '';
+            data['selectedBadgeName'] = badgeData['name'] ?? '';
+          }
+        }
+      }
+    } catch (e) {
+      // ignore badge fetch errors
+    }
+
     _userCache[uid] = data;
     return data;
   }
@@ -85,14 +115,13 @@ class _PostScreenState extends State<PostScreen> {
           padding: const EdgeInsets.symmetric(vertical: 10),
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
-                  (context, index) {
+              (context, index) {
                 final postDoc = snapshot.data!.docs[index];
                 final data = postDoc.data() as Map<String, dynamic>;
                 final authorId = data['authorId'] ?? '';
                 final postId = postDoc.id;
 
-                final placeIds =
-                List<String>.from(data['places'] ?? []);
+                final placeIds = List<String>.from(data['places'] ?? []);
 
                 return FutureBuilder<Map<String, dynamic>>(
                   future: _getUserCached(authorId),
@@ -116,6 +145,8 @@ class _PostScreenState extends State<PostScreen> {
                       shares: data['shares'] ?? 0,
                       authorId: data['authorId'],
                       placeIds: placeIds,
+                      selectedBadgeIcon: user['selectedBadgeIcon'] ?? '',
+                      selectedBadgeName: user['selectedBadgeName'] ?? '',
                     );
                   },
                 );
@@ -156,7 +187,9 @@ class _PostScreenState extends State<PostScreen> {
       required int comments,
       required int shares,
       required String authorId,
-      required List<String> placeIds}) {
+      required List<String> placeIds,
+      required String? selectedBadgeIcon,
+      required String? selectedBadgeName}) {
     return FutureBuilder<List<Map<String, dynamic>>>(
         future: _fetchPlacesFromIds(placeIds),
         builder: (context, snapshot) {
@@ -197,6 +230,44 @@ class _PostScreenState extends State<PostScreen> {
                                     fontSize: 16,
                                   ),
                                 ),
+
+                                // badge row (icon + name) similar to item_post
+                                if (selectedBadgeIcon != null &&
+                                    selectedBadgeIcon.isNotEmpty)
+                                  Row(
+                                    children: [
+                                      ClipOval(
+                                        child: Image.network(
+                                          selectedBadgeIcon,
+                                          width: 18,
+                                          height: 18,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) =>
+                                              const Icon(
+                                            Icons.emoji_events,
+                                            size: 14,
+                                            color: Colors.amber,
+                                          ),
+                                        ),
+                                      ),
+                                      if (selectedBadgeName != null &&
+                                          selectedBadgeName.isNotEmpty)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(left: 6),
+                                          child: Text(
+                                            selectedBadgeName,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color: Color(0xFF2E5E2A),
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+
+                                const SizedBox(height: 4),
                                 Text(
                                   timeAgo,
                                   style: const TextStyle(
@@ -402,18 +473,24 @@ class _PostScreenState extends State<PostScreen> {
 
                   // Footer với các nút tương tác
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 10),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 15, horizontal: 10),
                     child: StreamBuilder<DocumentSnapshot>(
-                      stream: _firestore.collection('posts').doc(postId).snapshots(),
+                      stream: _firestore
+                          .collection('posts')
+                          .doc(postId)
+                          .snapshots(),
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) return const SizedBox();
 
-                        final postData = snapshot.data!.data() as Map<String, dynamic>;
+                        final postData =
+                            snapshot.data!.data() as Map<String, dynamic>;
                         final currentUser = FirebaseAuth.instance.currentUser;
-                        final likedBy = List<String>.from(postData['likedBy'] ?? []);
+                        final likedBy =
+                            List<String>.from(postData['likedBy'] ?? []);
                         final likesCount = postData['likes'] ?? 0;
-                        final isLiked =
-                            currentUser != null && likedBy.contains(currentUser.uid);
+                        final isLiked = currentUser != null &&
+                            likedBy.contains(currentUser.uid);
 
                         return Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -422,20 +499,29 @@ class _PostScreenState extends State<PostScreen> {
                               onTap: () async {
                                 if (currentUser == null) return;
 
-                                await _firestore.collection('posts').doc(postId).update({
-                                  'likes': FieldValue.increment(isLiked ? -1 : 1),
+                                await _firestore
+                                    .collection('posts')
+                                    .doc(postId)
+                                    .update({
+                                  'likes':
+                                      FieldValue.increment(isLiked ? -1 : 1),
                                   'likedBy': isLiked
-                                      ? FieldValue.arrayRemove([currentUser.uid])
-                                      : FieldValue.arrayUnion([currentUser.uid]),
+                                      ? FieldValue.arrayRemove(
+                                          [currentUser.uid])
+                                      : FieldValue.arrayUnion(
+                                          [currentUser.uid]),
                                 });
                               },
                               child: Row(
                                 children: [
                                   Icon(
-                                    isLiked ? Icons.favorite : Icons.favorite_outline,
+                                    isLiked
+                                        ? Icons.favorite
+                                        : Icons.favorite_outline,
                                     color: isLiked
                                         ? Colors.red
-                                        : const Color.fromARGB(255, 255, 12, 109),
+                                        : const Color.fromARGB(
+                                            255, 255, 12, 109),
                                   ),
                                   const SizedBox(width: 5),
                                   Text(likesCount.toString()),
@@ -449,7 +535,8 @@ class _PostScreenState extends State<PostScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => CommentScreen(postId: postId),
+                                    builder: (context) =>
+                                        CommentScreen(postId: postId),
                                   ),
                                 );
                               },
@@ -467,11 +554,13 @@ class _PostScreenState extends State<PostScreen> {
                             InkWell(
                               onTap: () async {
                                 try {
-                                  await Share.share('Xem bài viết này: $content');
+                                  await Share.share(
+                                      'Xem bài viết này: $content');
                                 } catch (e) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                        content: Text("Lỗi khi chia sẻ bài viết")),
+                                        content:
+                                            Text("Lỗi khi chia sẻ bài viết")),
                                   );
                                 }
                               },
