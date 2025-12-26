@@ -22,6 +22,7 @@ class _ReviewScreenState<Reviews> extends State<ReviewScreen> {
           'ĐÁNH GIÁ',
           style: TextStyle(
             color: Color.fromARGB(255, 35, 52, 10),
+            fontWeight: FontWeight.bold,
           ),
         ),
         leading: IconButton(

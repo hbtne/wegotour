@@ -270,138 +270,132 @@ class _ProfileState extends State<Profile> {
     );
   }
 
-  void _showBadgeSelectionDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          constraints: const BoxConstraints(maxHeight: 500),
+void _showBadgeSelectionDialog() {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: SizedBox(
+          // 🔑 Chiều cao tối đa theo màn hình
+          height: MediaQuery.of(context).size.height * 0.65,
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
+              const SizedBox(height: 16),
+
               const Text(
-                'Chọn huy hiệu hiển thị',
+                'Huy hiệu hiển thị',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF2D4D0A),
                 ),
               ),
-              const SizedBox(height: 16),
+
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+
+              /// ✅ LISTVIEW – KHÔNG OVERFLOW
               Expanded(
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 0.8,
-                  ),
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(12),
                   itemCount: _badges.length,
-                  itemBuilder: (ctx, i) {
-                    final badge = _badges[i];
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final badge = _badges[index];
                     final icon = badge['icon'] ?? '';
                     final name = badge['name'] ?? 'Badge';
                     final badgeId = badge['id'];
                     final isSelected = badgeId == _selectedBadgeId;
-                    final earnedAt = badge['earnedAt'];
 
-                    return GestureDetector(
+                    return ListTile(
                       onTap: () async {
                         await _selectBadge(badgeId);
                         Navigator.pop(context);
                       },
-                      child: Container(
-                        decoration: BoxDecoration(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
                           color: isSelected
-                              ? Colors.amber.shade50
-                              : Colors.grey[100],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isSelected
-                                ? Colors.amber
-                                : Colors.grey.shade300,
-                            width: isSelected ? 3 : 1,
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            if (isSelected)
-                              const Padding(
-                                padding: EdgeInsets.only(bottom: 4),
-                                child: Icon(
-                                  Icons.check_circle,
-                                  color: Colors.amber,
-                                  size: 20,
-                                ),
-                              ),
-                            Container(
-                              width: 50,
-                              height: 50,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white,
-                              ),
-                              child: icon.isNotEmpty
-                                  ? ClipOval(
-                                      child: Image.network(
-                                        icon,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            const Icon(
-                                          Icons.emoji_events,
-                                          size: 28,
-                                          color: Colors.amber,
-                                        ),
-                                      ),
-                                    )
-                                  : const Icon(
-                                      Icons.emoji_events,
-                                      size: 28,
-                                      color: Colors.amber,
-                                    ),
-                            ),
-                            const SizedBox(height: 6),
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 4),
-                              child: Text(
-                                name,
-                                textAlign: TextAlign.center,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: isSelected
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                  color: const Color(0xFF2D4D0A),
-                                ),
-                              ),
-                            ),
-                          ],
+                              ? Colors.amber
+                              : Colors.grey.shade300,
+                          width: isSelected ? 2 : 1,
                         ),
                       ),
+                      tileColor: isSelected
+                          ? Colors.amber.shade50
+                          : Colors.grey.shade100,
+                      leading: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                        ),
+                        child: icon.isNotEmpty
+                            ? ClipOval(
+                                child: Image.network(
+                                  icon,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      const Icon(
+                                    Icons.emoji_events,
+                                    color: Colors.amber,
+                                  ),
+                                ),
+                              )
+                            : const Icon(
+                                Icons.emoji_events,
+                                color: Colors.amber,
+                              ),
+                      ),
+                      title: Text(
+                        name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: const Color(0xFF2D4D0A),
+                        ),
+                      ),
+                      trailing: isSelected
+                          ? const Icon(
+                              Icons.check_circle,
+                              color: Colors.amber,
+                            )
+                          : null,
                     );
                   },
                 ),
               ),
-              const SizedBox(height: 12),
+
+              const Divider(height: 1),
+
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text(
-                  'Đóng',
-                  style: TextStyle(color: Color(0xFF2D4D0A)),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'Đóng',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF2D4D0A),
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
+}
+
 
   Future<void> _selectBadge(String badgeId) async {
     try {

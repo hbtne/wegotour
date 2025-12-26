@@ -8,9 +8,18 @@ class CollectionEventsList extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sự kiện sưu tầm'),
-        elevation: 0,
-      ),
+  title: const Text(
+    'Sự kiện sưu tầm',
+    style: TextStyle(
+      fontWeight: FontWeight.bold,
+      color: Color(0xFF3B6332),
+      fontSize: 18,
+    ),
+  ),
+  centerTitle: true,
+  backgroundColor: Colors.white,
+  elevation: 0,
+),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('collect_events')
@@ -96,7 +105,7 @@ class CollectionEventsList extends StatelessWidget {
                 statusText = 'Đã kết thúc';
                 statusIcon = Icons.lock_clock;
               } else if (isActive) {
-                statusColor = Colors.green;
+                statusColor = const Color(0xFF3B6332);
                 statusText = 'Đang diễn ra';
                 statusIcon = Icons.play_circle_filled;
               } else {
@@ -153,6 +162,7 @@ class CollectionEventsList extends StatelessWidget {
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
+                                  color: Color(0xFF3B6332)
                                 ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
@@ -172,48 +182,61 @@ class CollectionEventsList extends StatelessWidget {
                                   Icon(Icons.access_time,
                                       size: 14, color: Colors.grey[600]),
                                   const SizedBox(width: 4),
-                                  Text(
-                                    '${_formatDate(startAt)} - ${_formatDate(endAt)}',
-                                    style: TextStyle(
-                                        fontSize: 12, color: Colors.grey[600]),
+                                  Expanded(
+                                    child: Text(
+                                      '${_formatDate(startAt)} - ${_formatDate(endAt)}',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600]),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ],
                               ),
                             ],
                           ),
                         ),
-                        Column(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: statusColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                                border:
-                                    Border.all(color: statusColor, width: 1),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(statusIcon,
-                                      size: 14, color: statusColor),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    statusText,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: statusColor,
-                                      fontWeight: FontWeight.bold,
+                        const SizedBox(width: 12),
+                        SizedBox(
+                          width: 110,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: statusColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border:
+                                      Border.all(color: statusColor, width: 1),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(statusIcon,
+                                        size: 14, color: statusColor),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        statusText,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: statusColor,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Icon(Icons.arrow_forward_ios,
-                                size: 16, color: Colors.grey[400]),
-                          ],
+                              const SizedBox(height: 8),
+                              Icon(Icons.arrow_forward_ios,
+                                  size: 16, color: const Color(0xFF3B6332)),
+                            ],
+                          ),
                         ),
                       ],
                     ),

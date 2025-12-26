@@ -81,9 +81,9 @@ class _FeedsState extends State<Feeds> {
                   itemBuilder: (context, index) {
                     if (index == 0) {
                       return ListTile(
-                        leading: const Icon(Icons.local_offer, color: Colors.blue),
-                        title: const Text('Sự kiện sưu tầm'),
-                        subtitle: const Text('Tham gia, đăng bài và nhận huy hiệu'),
+                        leading: const Icon(Icons.local_offer, color: Color(0xFF3B6332)),
+                        title: const Text('Sự kiện sưu tầm', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF3B6332))),
+                        subtitle: const Text('Tham gia, đăng bài và nhận huy hiệu', style: TextStyle(color: Color(0xFF3B6332)),),
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const CollectionEventsList()),
