@@ -26,7 +26,7 @@ class Profile extends StatefulWidget {
 }
 
 class _ProfileState extends State<Profile> {
-  final int _selectedEvent = 0;
+  int _selectedEvent = 0;
   final int _currentIndex = 2;
   Map<String, dynamic>? _profileData;
   bool _isLoading = true;
@@ -44,6 +44,7 @@ class _ProfileState extends State<Profile> {
 
   Future<void> _logout(BuildContext context) async {
     try {
+      _profileData?.clear();
       await FirebaseAuth.instance.signOut();
       Navigator.pushReplacementNamed(context, '/signin');
     } catch (e) {
@@ -85,7 +86,7 @@ class _ProfileState extends State<Profile> {
 
         final badgesSnap = await FirebaseFirestore.instance
             .collection('users')
-            .doc(user.uid)
+            .doc(widget.profileId)
             .collection('badges')
             .get();
 
@@ -93,7 +94,7 @@ class _ProfileState extends State<Profile> {
 
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
-            .doc(user.uid)
+            .doc(widget.profileId)
             .get();
 
         setState(() {
@@ -108,6 +109,13 @@ class _ProfileState extends State<Profile> {
     } catch (e) {
       print('❌ Failed to load badges: $e');
     }
+  }
+
+  bool get _isFriend {
+    final currentUid = AuthService.getCurrentUserId();
+    if (currentUid == null) return false;
+
+    return (_profileData?['friends'] as List?)?.contains(currentUid) ?? false;
   }
 
   @override
@@ -128,23 +136,23 @@ class _ProfileState extends State<Profile> {
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              ProfileImage(
-                  size: size,
-                  docId: widget.profileId),
-              profileInfo(),
-              profileActivity(),
-              // ✅ Thêm phần hiển thị badges
-              if (!_isLoading && _profileData != null) _buildBadgesSection(),
-              if (!_isLoading && _profileData != null) profileEvents(size),
-              SizedBox(
-                height: 5530,
-                child: _pages[_selectedEvent],
-              ),
-            ],
-          ),
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: ProfileImage(size: size, docId: widget.profileId),
+            ),
+
+            SliverToBoxAdapter(child: profileInfo()),
+            SliverToBoxAdapter(child: profileActivity()),
+
+            if (!_isLoading && _profileData != null)
+              SliverToBoxAdapter(child: _buildBadgesSection()),
+
+            if (!_isLoading && _profileData != null)
+              SliverToBoxAdapter(child: profileEvents(size)),
+
+            PostScreen(profileId: widget.profileId),
+          ],
         ),
       ),
     );
@@ -528,43 +536,41 @@ class _ProfileState extends State<Profile> {
   }
 
   Future<void> _toggleFriend() async {
-    final currentUserId = AuthService.getCurrentUserId();
+    final currentUid = AuthService.getCurrentUserId();
     final targetId = widget.profileId;
 
-    if (currentUserId == null || targetId == null) return;
+    if (currentUid == null || currentUid == targetId) return;
 
     final firestore = FirebaseFirestore.instance;
+    final currentRef = firestore.collection('users').doc(currentUid);
+    final targetRef = firestore.collection('users').doc(targetId);
 
-    final currentUserRef = firestore.collection('users').doc(currentUserId);
-    final targetUserRef = firestore.collection('users').doc(targetId);
+    await firestore.runTransaction((tx) async {
+      final currentSnap = await tx.get(currentRef);
+      final targetSnap = await tx.get(targetRef);
 
-    // Lấy dữ liệu
-    final currentSnap = await currentUserRef.get();
-    final targetSnap = await targetUserRef.get();
+      final currentFriends =
+      List<String>.from(currentSnap['friends'] ?? []);
+      final targetFriends =
+      List<String>.from(targetSnap['friends'] ?? []);
 
-    if (!currentSnap.exists || !targetSnap.exists) return;
+      final isFriend = currentFriends.contains(targetId);
 
-    List currentFriends = List<String>.from(currentSnap['friends'] ?? []);
-    List targetFriends = List<String>.from(targetSnap['friends'] ?? []);
+      if (isFriend) {
+        currentFriends.remove(targetId);
+        targetFriends.remove(currentUid);
+      } else {
+        currentFriends.add(targetId);
+        targetFriends.add(currentUid);
+      }
 
-    bool isFriend = currentFriends.contains(targetId);
+      tx.update(currentRef, {'friends': currentFriends});
+      tx.update(targetRef, {'friends': targetFriends});
+    });
 
-    if (isFriend) {
-      currentFriends.remove(targetId);
-      targetFriends.remove(currentUserId);
-    } else {
-      currentFriends.add(targetId);
-    }
-
-    // Update Firestore song song
-    await Future.wait([
-      currentUserRef.update({"friends": currentFriends}),
-      targetUserRef.update({"friends": targetFriends}),
-    ]);
-
-    // Cập nhật UI
     setState(() {
-      _profileData!['friends'] = currentFriends;
+      _profileData!['friends'] =
+      List<String>.from(_profileData!['friends'] ?? []);
     });
   }
 
@@ -628,32 +634,30 @@ class _ProfileState extends State<Profile> {
   }
 
   Widget _friendActivity() {
-    return Stack(
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-          const SizedBox(width: 8),
-
-          IconButton(
-            icon:
-            _profileData!['friends'].contains(widget.profileId)
-                ? Icon(
-              Icons.person_add,
-              color: Colors.black87,
-            )
-                : SvgPicture.string(personCheckSVG),
-            onPressed: _toggleFriend,
-          ),
-        SizedBox(width: 5,),
-        _buildActionButton("Gửi tin nhắn", onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => PersonalChatScreen(friendId: widget.profileId, friendName: _profileData!['username']),
-            ),
-          );
-          if (result == true) {
-            _fetchProfile();
-          }
-        }),
+        IconButton(
+          icon: _isFriend
+              ? const Icon(Icons.person_remove, color: Colors.black87)
+              : SvgPicture.string(personCheckSVG),
+          onPressed: _toggleFriend,
+        ),
+        const SizedBox(width: 8),
+        _buildActionButton(
+          "Gửi tin nhắn",
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PersonalChatScreen(
+                  friendId: widget.profileId,
+                  friendName: _profileData!['username'],
+                ),
+              ),
+            );
+          },
+        ),
       ],
     );
   }

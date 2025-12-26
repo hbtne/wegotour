@@ -6,6 +6,7 @@ import 'package:stour/screens/group.dart';
 import 'package:stour/screens/list_group_message.dart';
 import 'package:stour/widgets/item_post.dart';
 
+import '../services/auth_service.dart';
 import 'addPost_screen.dart';
 import '../assets/icons/group_feed_bar.dart';
 import '../assets/icons/chat_feed_bar.dart';
@@ -23,6 +24,16 @@ class _FeedsState extends State<Feeds> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Map<String, dynamic>? userData;
+  final Map<String, Map<String, dynamic>> _userCache = {};
+
+  Future<Map<String, dynamic>> _getUserCached(String uid) async {
+    if (_userCache.containsKey(uid)) return _userCache[uid]!;
+
+    final doc = await _firestore.collection('users').doc(uid).get();
+    final data = doc.data() ?? {};
+    _userCache[uid] = data;
+    return data;
+  }
 
   @override
   void initState() {
@@ -66,9 +77,8 @@ class _FeedsState extends State<Feeds> {
 
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 10),
-                  itemCount: docs.length + 1, // +1 vì có ListTile sự kiện
+                  itemCount: docs.length + 1,
                   itemBuilder: (context, index) {
-                    // === NÚT SỰ KIỆN SƯU TẦM ===
                     if (index == 0) {
                       return ListTile(
                         leading: const Icon(Icons.local_offer, color: Colors.blue),
@@ -81,36 +91,34 @@ class _FeedsState extends State<Feeds> {
                       );
                     }
 
-                    final postData = docs[index - 1];
-                    final data = postData.data() as Map<String, dynamic>;
-                    final authorId = data['authorId'] ?? '';
+                    final postDoc = docs[index - 1];
+                    final data = postDoc.data() as Map<String, dynamic>;
+                    final currentUser = FirebaseAuth.instance.currentUser;
+                    final isLiked =
+                        currentUser != null && List<String>.from(data['likedBy'] ?? []).contains(currentUser.uid);
+                    return FutureBuilder<Map<String, dynamic>>(
+                      future: _getUserCached(data['authorId']),
+                      builder: (context, snap) {
+                        if (!snap.hasData) return const SizedBox();
 
-                    return FutureBuilder<DocumentSnapshot>(
-                      future: _firestore.collection('users').doc(authorId).get(),
-                      builder: (context, userSnapshot) {
-                        if (userSnapshot.connectionState == ConnectionState.waiting) {
-                          return const SizedBox();
-                        }
-
-                        final user = (userSnapshot.data?.data()
-                                as Map<String, dynamic>?) ??
-                            {};
-
+                        final user = snap.data!;
                         return PostItem(
-                          postId: postData.id,
+                          postId: postDoc.id,
                           groupId: data['groupId'] ?? '',
                           groupName: data['groupName'] ?? '',
                           content: data['content'] ?? '',
                           imageUrls: List<String>.from(data['imageUrls'] ?? []),
+                          author: user['username'] ?? 'Không tên',
                           timeAgo: data['createdAt'] as Timestamp,
                           location: data['location'] ?? '',
+                          avatar: user['avatar'] ?? '',
                           likes: data['likes'] ?? 0,
                           comments: data['comments'] ?? 0,
                           shares: data['shares'] ?? 0,
-                          authorId: authorId,
+                          authorId: data['authorId'],
                           placeIds: List<String>.from(data['places'] ?? []),
-                          author: user['username'] ?? 'Ẩn danh',
-                          avatar: user['avatar'] ?? '',
+                          isLiked: isLiked,
+                          highlightCommentId: null,
                         );
                       },
                     );

@@ -96,6 +96,9 @@ class _GroupsScreenState extends State<GroupsScreen> {
 
                             final userData =
                                 userSnapshot.data!.data() as Map<String, dynamic>? ?? {};
+                            final currentUid = AuthService.getCurrentUserId();
+                            final isLiked = currentUid != null &&
+                                List<String>.from(data['likedBy'] ?? []).contains(currentUid);
 
                             return PostItem(
                               postId: postDoc.id,
@@ -113,6 +116,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                               shares: data['shares'] ?? 0,
                               authorId: authorId,
                               placeIds: List<String>.from(data['places'] ?? []),
+                              isLiked: isLiked,
                             );
                           },
                         );

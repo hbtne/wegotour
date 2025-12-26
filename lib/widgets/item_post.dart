@@ -9,7 +9,7 @@ import '../screens/comment_screen.dart';
 import '../screens/group_post.dart';
 import '../util/const.dart';
 
-class PostItem extends StatelessWidget {
+class PostItem extends StatefulWidget {
   final String postId;
   final String groupId;
   final String groupName;
@@ -25,6 +25,7 @@ class PostItem extends StatelessWidget {
   final String author;
   final String avatar;
   final String? highlightCommentId;
+  final bool isLiked;
 
   const PostItem({
     super.key,
@@ -42,46 +43,57 @@ class PostItem extends StatelessWidget {
     required this.placeIds,
     required this.author,
     required this.avatar,
-    this.highlightCommentId
+    this.highlightCommentId,
+    required this.isLiked,
   });
 
+  @override
+  State<PostItem> createState() => _PostItemState();
+}
+
+class _PostItemState extends State<PostItem> {
   static final _firestore = FirebaseFirestore.instance;
-  
+  late Future<List<Map<String, dynamic>>> _placesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _placesFuture = _fetchPlacesFromIds(widget.placeIds);
+  }
+
   Future<List<Map<String, dynamic>>> _fetchPlacesFromIds(
       List<String> placeIds) async {
-    final List<Map<String, dynamic>> places = [];
-    for (String id in placeIds) {
-      final doc =
-      await _firestore.collection("places").doc(id).get(); // ví dụ: places
-      if (doc.exists) {
-        places.add(doc.data()!..['id'] = doc.id);
-      }
-    }
-    return places;
+    if (placeIds.isEmpty) return [];
+
+    final query = await _firestore
+        .collection('places')
+        .where(FieldPath.documentId, whereIn: placeIds.take(10).toList())
+        .get();
+
+    return query.docs
+        .map((e) => {...e.data(), 'id': e.id})
+        .toList();
   }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _fetchPlacesFromIds(placeIds),
+      future: _placesFuture,
       builder: (context, snapshot) {
         final placeTags = snapshot.data ?? [];
 
-        return Container(
+        return Card(
           margin: const EdgeInsets.symmetric(vertical: 10),
-          child: Card(
-            margin: const EdgeInsets.all(0.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(context),
-                _buildContent(),
-                if (location.isNotEmpty) _buildLocation(),
-                if (imageUrls.isNotEmpty) _buildImages(),
-                if (placeTags.isNotEmpty) _buildPlaceTags(placeTags),
-                _buildFooter(context),
-              ],
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildHeader(context),
+              _buildContent(),
+              if (widget.location.isNotEmpty) _buildLocation(),
+              if (widget.imageUrls.isNotEmpty) _buildImages(),
+              if (placeTags.isNotEmpty) _buildPlaceTags(placeTags),
+              _buildFooter(context),
+            ],
           ),
         );
       },
@@ -102,7 +114,7 @@ class PostItem extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => Profile(
-                        profileId: authorId,
+                        profileId: widget.authorId,
                       ),
                     ),
                   );
@@ -110,8 +122,8 @@ class PostItem extends StatelessWidget {
                 child: CircleAvatar(
                   radius: 24,
                   backgroundColor: Colors.grey.shade300,
-                  backgroundImage: avatar.isNotEmpty
-                      ? NetworkImage(avatar)
+                  backgroundImage: widget.avatar.isNotEmpty
+                      ? NetworkImage(widget.avatar)
                       : const AssetImage('assets/default_avatar.png')
                   as ImageProvider,
                 ),
@@ -129,13 +141,13 @@ class PostItem extends StatelessWidget {
                             context,
                             MaterialPageRoute(
                               builder: (_) => Profile(
-                                profileId: authorId,
+                                profileId: widget.authorId,
                               ),
                             ),
                           );
                         },
                         child: Text(
-                          author,
+                          widget.author,
                           style: const TextStyle(
                             color: Color(0xFF2E5E2A),
                             fontWeight: FontWeight.bold,
@@ -144,15 +156,15 @@ class PostItem extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      if (groupId.isNotEmpty)
+                      if (widget.groupId.isNotEmpty)
                         GestureDetector(
                           onTap: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => GroupPostScreen(
-                                  groupId: groupId,
-                                  groupName: groupName,
+                                  groupId: widget.groupId,
+                                  groupName: widget.groupName,
                                 ),
                               ),
                             );
@@ -165,7 +177,7 @@ class PostItem extends StatelessWidget {
                                 color: Color(0xFF2E5E2A),
                               ),
                               Text(
-                                groupName,
+                                widget.groupName,
                                 style: const TextStyle(
                                   color: Color(0xFF2E5E2A),
                                   fontWeight: FontWeight.bold,
@@ -180,7 +192,7 @@ class PostItem extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _getTimeAgo(timeAgo),
+                    _getTimeAgo(widget.timeAgo),
                     style: const TextStyle(
                       color: Color.fromARGB(173, 35, 52, 10),
                       fontSize: 12,
@@ -191,26 +203,14 @@ class PostItem extends StatelessWidget {
             ],
           ),
 
-          // 🔹 Dấu 3 chấm
           PopupMenuButton<String>(
-            onSelected: (value) => _handleMenu(context, value),
-            itemBuilder: (BuildContext context) => [
-              const PopupMenuItem(
-                value: "delete",
-                child: Text("Xóa bài viết"),
-              ),
-              const PopupMenuItem(
-                value: "edit",
-                child: Text("Chỉnh sửa bài viết"),
-              ),
+            onSelected: (v) => _handleMenu(context, v),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: "edit", child: Text("Chỉnh sửa")),
+              PopupMenuItem(value: "delete", child: Text("Xóa")),
             ],
-            child: const Icon(
-              Icons.more_vert,
-              color: Color(0xFFFFD54F), // vàng nhạt
-            ),
           ),
-        ],
-      ),
+      ],)
     );
   }
 
@@ -218,7 +218,7 @@ class PostItem extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Text(
-        content,
+        widget.content,
         style: const TextStyle(
           fontSize: 18,
           color: Color.fromARGB(255, 35, 52, 10),
@@ -235,7 +235,7 @@ class PostItem extends StatelessWidget {
           const Icon(Icons.location_on, size: 16, color: Colors.grey),
           const SizedBox(width: 10),
           Text(
-            location,
+            widget.location,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(color: Colors.grey, overflow: TextOverflow.ellipsis),
@@ -249,14 +249,14 @@ class PostItem extends StatelessWidget {
     return SizedBox(
       height: 250,
       child: PageView.builder(
-        itemCount: imageUrls.length,
+        itemCount: widget.imageUrls.length,
         itemBuilder: (context, index) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 5),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Image.network(
-                imageUrls[index],
+                widget.imageUrls[index],
                 fit: BoxFit.cover,
                 loadingBuilder: (context, child, loadingProgress) {
                   if (loadingProgress == null) return child;
@@ -313,10 +313,13 @@ class PostItem extends StatelessWidget {
             onTap: () => _handleLike(context),
             child: Row(
               children: [
-                const Icon(Icons.favorite_outline,
-                    color: Color.fromARGB(255, 255, 12, 109)),
+                widget.isLiked
+                    ? const Icon(Icons.favorite,
+                      color: Colors.red)
+                    : const Icon(Icons.favorite_outline,
+                      color: Color.fromARGB(255, 255, 12, 109)),
                 const SizedBox(width: 5),
-                Text(likes.toString()),
+                Text(widget.likes.toString()),
               ],
             ),
           ),
@@ -325,7 +328,7 @@ class PostItem extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => CommentScreen(postId: postId),
+                  builder: (context) => CommentScreen(postId: widget.postId),
                 ),
               );
             },
@@ -333,7 +336,7 @@ class PostItem extends StatelessWidget {
               children: [
                 Icon(Icons.comment_outlined, color: Constants.darkgreen),
                 const SizedBox(width: 5),
-                Text(comments.toString()),
+                Text(widget.comments.toString()),
               ],
             ),
           ),
@@ -343,7 +346,7 @@ class PostItem extends StatelessWidget {
               children: [
                 Icon(Icons.share_outlined, color: Constants.darkpp),
                 const SizedBox(width: 5),
-                Text(shares.toString()),
+                Text(widget.shares.toString()),
               ],
             ),
           )
@@ -376,12 +379,12 @@ class PostItem extends StatelessWidget {
 
       if (confirm == true) {
         try {
-          await _firestore.collection('posts').doc(postId).delete();
+          await _firestore.collection('posts').doc(widget.postId).delete();
 
-          if (authorId.isNotEmpty) {
-            final userRef = _firestore.collection('users').doc(authorId);
+          if (widget.authorId.isNotEmpty) {
+            final userRef = _firestore.collection('users').doc(widget.authorId);
             await userRef.update({
-              'posts': FieldValue.arrayRemove([postId]),
+              'posts': FieldValue.arrayRemove([widget.postId]),
             });
           }
 
@@ -396,9 +399,9 @@ class PostItem extends StatelessWidget {
       }
     } else if (value == "edit") {
       final currentPostData = {
-        'content': content,
-        'location': location,
-        'imageUrls': imageUrls,
+        'content': widget.content,
+        'location': widget.location,
+        'imageUrls': widget.imageUrls,
       };
 
       final updated = await Navigator.push<bool>(
@@ -406,7 +409,7 @@ class PostItem extends StatelessWidget {
         MaterialPageRoute(
           builder: (context) => AddPostScreen(
             existingPost: currentPostData,
-            postId: postId,
+            postId: widget.postId,
           ),
         ),
       );
@@ -420,36 +423,30 @@ class PostItem extends StatelessWidget {
   }
 
   Future<void> _handleLike(BuildContext context) async {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
-    final postRef = _firestore.collection('posts').doc(postId);
-    final postDoc = await postRef.get();
+    final postRef = _firestore.collection('posts').doc(widget.postId);
 
-    List<dynamic> likedBy = postDoc['likedBy'] ?? [];
-    if (!likedBy.contains(currentUser.uid)) {
-      await postRef.update({
-        'likes': FieldValue.increment(1),
-        'likedBy': FieldValue.arrayUnion([currentUser.uid]),
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Bạn đã thả like bài viết này")),
-      );
-    }
+    await _firestore.runTransaction((transaction) async {
+      final snap = await transaction.get(postRef);
+      final likedBy = List<String>.from(snap['likedBy'] ?? []);
+
+      if (!likedBy.contains(user.uid)) {
+        transaction.update(postRef, {
+          'likes': FieldValue.increment(1),
+          'likedBy': FieldValue.arrayUnion([user.uid]),
+        });
+      }
+    });
   }
 
   Future<void> _handleShare(BuildContext context) async {
-    try {
-      final currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser == null) return;
+    await Share.share(widget.content);
 
-      await Share.share('Xem bài viết này: $content');
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Đã xảy ra lỗi khi chia sẻ bài viết.")),
-      );
-    }
+    await _firestore.collection('posts').doc(widget.postId).update({
+      'shares': FieldValue.increment(1),
+    });
   }
 
   String _getTimeAgo(Timestamp timestamp) {

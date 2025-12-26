@@ -174,6 +174,9 @@ class _GroupPostScreenState extends State<GroupPostScreen> {
                               final post = allPosts[index];
                               final data = post.data() as Map<String, dynamic>;
                               final user = users[data['authorId']] ?? {};
+                              final currentUid = AuthService.getCurrentUserId();
+                              final isLiked = currentUid != null &&
+                                  List<String>.from(post['likedBy'] ?? []).contains(currentUid);
 
                               return PostItem(
                                 postId: post.id,
@@ -190,6 +193,7 @@ class _GroupPostScreenState extends State<GroupPostScreen> {
                                 placeIds: List<String>.from(data['places'] ?? []),
                                 author: user['username'] ?? 'Ẩn danh',
                                 avatar: user['avatar'] ?? '',
+                                isLiked: isLiked,
                               );
                             },
                           );

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:stour/services/auth_service.dart';
 import 'package:stour/widgets/item_post.dart';
 
 class PostDetailScreen extends StatefulWidget {
@@ -62,6 +63,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       );
     }
 
+    final currentUid = AuthService.getCurrentUserId();
+    final isLiked = currentUid != null &&
+        List<String>.from(post!['likedBy'] ?? []).contains(currentUid);
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -101,6 +106,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               author: user!['username'] ?? 'Ẩn danh',
               avatar: user!['avatar'] ?? '',
               highlightCommentId: widget.highlightCommentId,
+              isLiked: isLiked,
             ),
 
             _buildComments(), // ⭐ DANH SÁCH BÌNH LUẬN

@@ -5,7 +5,6 @@ import 'package:stour/assets/icons/chat_svg.dart';
 import 'package:stour/assets/icons/find_group_svg.dart';
 import 'package:stour/screens/friend_message.dart';
 import 'package:stour/screens/profile.dart';
-import 'package:stour/services/auth_service.dart';
 
 import 'find_friend.dart';
 
@@ -29,11 +28,18 @@ class _FriendListScreenState extends State<FriendListScreen> {
   }
 
   Future<void> loadFriends() async {
-    final result = await fetchFriends(widget.currentUserId);
-    setState(() {
-      friends = result;
-      isLoading = false;
-    });
+    try {
+      final result = await fetchFriends(widget.currentUserId);
+      if (!mounted) return;
+      setState(() {
+        friends = result;
+        isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Load friends error: $e');
+      if (!mounted) return;
+      setState(() => isLoading = false);
+    }
   }
 
   @override
@@ -55,7 +61,6 @@ class _FriendListScreenState extends State<FriendListScreen> {
             color: primary,
             fontWeight: FontWeight.bold,
             fontSize: 20,
-            letterSpacing: 0.5,
           ),
         ),
         actions: [
@@ -75,9 +80,7 @@ class _FriendListScreenState extends State<FriendListScreen> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : friends.isEmpty
-          ? const Center(
-        child: Text("Tệ quá! Không có ai ở đây cả :("),
-      )
+          ? const Center(child: Text("Tệ quá! Không có ai ở đây cả :("))
           : ListView.builder(
         itemCount: friends.length,
         itemBuilder: (context, index) {
@@ -85,11 +88,16 @@ class _FriendListScreenState extends State<FriendListScreen> {
 
           return ListTile(
             leading: CircleAvatar(
-              backgroundImage: NetworkImage(friend.avatar),
+              backgroundImage: friend.avatar.isNotEmpty
+                  ? NetworkImage(friend.avatar)
+                  : const AssetImage(
+                  'assets/default_avatar.png')
+              as ImageProvider,
             ),
             title: Text(friend.username),
             trailing: IconButton(
-              icon: SvgPicture.string(chatSVG, width: 25, height: 25,),
+              icon:
+              SvgPicture.string(chatSVG, width: 25, height: 25),
               onPressed: () {
                 Navigator.push(
                   context,
@@ -103,7 +111,13 @@ class _FriendListScreenState extends State<FriendListScreen> {
               },
             ),
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => Profile(profileId: friend.friendId,)));
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      Profile(profileId: friend.friendId),
+                ),
+              );
             },
           );
         },
@@ -112,37 +126,40 @@ class _FriendListScreenState extends State<FriendListScreen> {
   }
 
   Future<List<FriendItem>> fetchFriends(String currentUserId) async {
-    final userDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(currentUserId)
-        .get();
-
-    final List messages = userDoc.data()?['messages'] ?? [];
-
-    List<FriendItem> friends = [];
-
-    for (var item in messages) {
-      final String friendId = item['friendId'];
-      final String messageId = item['id'];
-
-      final friendDoc = await FirebaseFirestore.instance
+    try {
+      final userDoc = await FirebaseFirestore.instance
           .collection('users')
-          .doc(friendId)
+          .doc(currentUserId)
           .get();
 
-      if (friendDoc.exists) {
-        friends.add(
-          FriendItem(
-            friendId: friendId,
-            username: friendDoc['username'],
-            avatar: friendDoc['avatar'],
-            messageId: messageId,
-          ),
-        );
-      }
-    }
+      final List messages = userDoc.data()?['messages'] ?? [];
 
-    return friends;
+      final futures = messages.map((item) async {
+        final String friendId = item['friendId'];
+        final String messageId = item['id'];
+
+        final friendDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(friendId)
+            .get();
+
+        if (!friendDoc.exists) return null;
+
+        final data = friendDoc.data()!;
+        return FriendItem(
+          friendId: friendId,
+          username: data['username'] ?? 'Không tên',
+          avatar: data['avatar'] ?? '',
+          messageId: messageId,
+        );
+      });
+
+      final results = await Future.wait(futures);
+      return results.whereType<FriendItem>().toList();
+    } catch (e) {
+      debugPrint('Fetch friends error: $e');
+      return [];
+    }
   }
 }
 

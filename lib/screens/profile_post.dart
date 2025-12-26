@@ -19,6 +19,21 @@ class PostScreen extends StatefulWidget {
 class _PostScreenState extends State<PostScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  final Map<String, Map<String, dynamic>> _userCache = {};
+
+  Future<Map<String, dynamic>> _getUserCached(String uid) async {
+    if (_userCache.containsKey(uid)) {
+      return _userCache[uid]!;
+    }
+
+    final doc =
+    await _firestore.collection('users').doc(uid).get();
+
+    final data = doc.data() ?? {};
+    _userCache[uid] = data;
+    return data;
+  }
+
   Future<List<Map<String, dynamic>>> _fetchPlacesFromIds(
       List<String> placeIds) async {
     List<Map<String, dynamic>> results = [];
@@ -49,70 +64,65 @@ class _PostScreenState extends State<PostScreen> {
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const SliverToBoxAdapter(
+            child: Center(child: CircularProgressIndicator()),
+          );
         }
 
         if (snapshot.hasError) {
-          return Center(child: Text('Lỗi: ${snapshot.error}'));
+          return SliverToBoxAdapter(
+            child: Center(child: Text('Lỗi: ${snapshot.error}')),
+          );
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('Chưa có bài viết nào'));
+          return const SliverToBoxAdapter(
+            child: Center(child: Text('Chưa có bài viết nào')),
+          );
         }
 
-        return ListView.builder(
+        return SliverPadding(
           padding: const EdgeInsets.symmetric(vertical: 10),
-          itemCount: snapshot.data!.docs.length,
-          itemBuilder: (context, index) {
-            final postData = snapshot.data!.docs[index];
-            final data = postData.data() as Map<String, dynamic>;
-            final authorId = data['authorId'] ?? '';
-            final postId = postData.id;
-            return FutureBuilder<DocumentSnapshot>(
-              future: _firestore.collection('users').doc(authorId).get(),
-              builder: (context, userSnapshot) {
-                if (userSnapshot.connectionState == ConnectionState.waiting) {
-                  return const SizedBox();
-                }
-                if (userSnapshot.hasError ||
-                    !userSnapshot.hasData ||
-                    !userSnapshot.data!.exists) {
-                  final placeIds = List<String>.from(data['places'] ?? []);
-                  return _buildPostItem(
-                    postId: postId,
-                    content: data['content'] ?? '',
-                    imageUrls: List<String>.from(data['imageUrls'] ?? []),
-                    author: 'Người dùng ẩn danh',
-                    timeAgo: _getTimeAgo(data['createdAt'] as Timestamp),
-                    location: data['location'] ?? '',
-                    avatarUrl: '',
-                    likes: data['likes'] ?? 0,
-                    comments: data['comments'] ?? 0,
-                    shares: data['shares'] ?? 0,
-                    authorId: authorId,
-                    placeIds: placeIds,
-                  );
-                }
-                final userData =
-                    userSnapshot.data!.data() as Map<String, dynamic>;
-                final placeIds = List<String>.from(data['places'] ?? []);
-                return _buildPostItem(
-                  postId: postId,
-                  content: data['content'] ?? '',
-                  imageUrls: List<String>.from(data['imageUrls'] ?? []),
-                  author: userData['username'] ?? 'Không tên',
-                  timeAgo: _getTimeAgo(data['createdAt'] as Timestamp),
-                  location: data['location'] ?? '',
-                  avatarUrl: userData['avatar'] ?? '',
-                  likes: data['likes'] ?? 0,
-                  comments: data['comments'] ?? 0,
-                  shares: data['shares'] ?? 0,
-                  authorId: authorId,
-                  placeIds: placeIds,
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                final postDoc = snapshot.data!.docs[index];
+                final data = postDoc.data() as Map<String, dynamic>;
+                final authorId = data['authorId'] ?? '';
+                final postId = postDoc.id;
+
+                final placeIds =
+                List<String>.from(data['places'] ?? []);
+
+                return FutureBuilder<Map<String, dynamic>>(
+                  future: _getUserCached(authorId),
+                  builder: (context, userSnap) {
+                    if (!userSnap.hasData) {
+                      return const SizedBox();
+                    }
+
+                    final user = userSnap.data!;
+
+                    return _buildPostItem(
+                      postId: postDoc.id,
+                      content: data['content'] ?? '',
+                      imageUrls: List<String>.from(data['imageUrls'] ?? []),
+                      author: user['username'] ?? 'Không tên',
+                      timeAgo: _getTimeAgo(data['createdAt'] as Timestamp),
+                      location: data['location'] ?? '',
+                      avatarUrl: user['avatar'] ?? '',
+                      likes: data['likes'] ?? 0,
+                      comments: data['comments'] ?? 0,
+                      shares: data['shares'] ?? 0,
+                      authorId: data['authorId'],
+                      placeIds: placeIds,
+                    );
+                  },
                 );
               },
-            );
-          },
+              childCount: snapshot.data!.docs.length,
+            ),
+          ),
         );
       },
     );
@@ -150,7 +160,6 @@ class _PostScreenState extends State<PostScreen> {
     return FutureBuilder<List<Map<String, dynamic>>>(
         future: _fetchPlacesFromIds(placeIds),
         builder: (context, snapshot) {
-          final places = snapshot.data ?? [];
           final placeTags = snapshot.data ?? [];
 
           return Container(
@@ -316,10 +325,13 @@ class _PostScreenState extends State<PostScreen> {
                           const Icon(Icons.location_on,
                               size: 16, color: Colors.grey),
                           const SizedBox(width: 5),
-                          Text(
-                            location,
-                            style: const TextStyle(color: Colors.grey),
-                          ),
+                          Expanded(
+                            child: Text(
+                              location,
+                              style: const TextStyle(color: Colors.grey),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          )
                         ],
                       ),
                     ),
@@ -390,108 +402,91 @@ class _PostScreenState extends State<PostScreen> {
 
                   // Footer với các nút tương tác
                   Padding(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 15, horizontal: 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        InkWell(
-                          onTap: () async {
-                            final currentUser = FirebaseAuth.instance
-                                .currentUser; // Lấy người dùng hiện tại
-                            if (currentUser == null) {
-                              // Nếu chưa đăng nhập, không cho thả like
-                              return;
-                            }
+                    padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 10),
+                    child: StreamBuilder<DocumentSnapshot>(
+                      stream: _firestore.collection('posts').doc(postId).snapshots(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) return const SizedBox();
 
-                            final postRef =
-                                _firestore.collection('posts').doc(postId);
-                            final postDoc = await postRef.get();
+                        final postData = snapshot.data!.data() as Map<String, dynamic>;
+                        final currentUser = FirebaseAuth.instance.currentUser;
+                        final likedBy = List<String>.from(postData['likedBy'] ?? []);
+                        final likesCount = postData['likes'] ?? 0;
+                        final isLiked =
+                            currentUser != null && likedBy.contains(currentUser.uid);
 
-                            // Kiểm tra xem người dùng đã thả like chưa
-                            List<dynamic> likedBy = postDoc['likedBy'] ?? [];
-                            if (!likedBy.contains(currentUser.uid)) {
-                              // Nếu chưa thả like, cho phép thả like
-                              await postRef.update({
-                                'likes': FieldValue.increment(1),
-                                // Tăng số lượt thích
-                                'likedBy':
-                                    FieldValue.arrayUnion([currentUser.uid]),
-                                // Thêm userId vào mảng likedBy
-                              });
-                            } else {
-                              // // Nếu đã thả like rồi, thông báo cho người dùng biết
-                              // ScaffoldMessenger.of(context).showSnackBar(
-                              //   SnackBar(
-                              //       content:
-                              //           Text("Bạn đã thả like bài viết này")),
-                              // );
-                              await postRef.update({
-                                'likes': FieldValue.increment(-1),
-                                'likedBy':
-                                FieldValue.arrayRemove([currentUser.uid]),
-                              });
-                            }
-                          },
-                          child: Row(
-                            children: [
-                              const Icon(Icons.favorite_outline,
-                                  color: Color.fromARGB(255, 255, 12, 109)),
-                              const SizedBox(width: 5),
-                              Text(likes.toString()), // Hiển thị số lượt thích
-                            ],
-                          ),
-                        ),
-                        InkWell(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    CommentScreen(postId: postId),
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            InkWell(
+                              onTap: () async {
+                                if (currentUser == null) return;
+
+                                await _firestore.collection('posts').doc(postId).update({
+                                  'likes': FieldValue.increment(isLiked ? -1 : 1),
+                                  'likedBy': isLiked
+                                      ? FieldValue.arrayRemove([currentUser.uid])
+                                      : FieldValue.arrayUnion([currentUser.uid]),
+                                });
+                              },
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    isLiked ? Icons.favorite : Icons.favorite_outline,
+                                    color: isLiked
+                                        ? Colors.red
+                                        : const Color.fromARGB(255, 255, 12, 109),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(likesCount.toString()),
+                                ],
                               ),
-                            );
-                          },
-                          child: Row(
-                            children: [
-                              Icon(Icons.comment_outlined,
-                                  color: Constants.darkgreen),
-                              const SizedBox(width: 5),
-                              Text(comments.toString()),
-                            ],
-                          ),
-                        ),
-                        InkWell(
-                          onTap: () async {
-                            try {
-                              final currentUser = FirebaseAuth.instance
-                                  .currentUser; // Lấy người dùng hiện tại
-                              if (currentUser == null) {
-                                return;
-                              }
+                            ),
 
-                              // Chia sẻ nội dung bài viết
-                              await Share.share('Xem bài viết này: $content');
-                            } catch (e) {
-                              print(
-                                  "Error sharing post: $e"); // In lỗi ra console
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                    content: Text(
-                                        "Đã xảy ra lỗi khi chia sẻ bài viết.")),
-                              );
-                            }
-                          },
-                          child: Row(
-                            children: [
-                              Icon(Icons.share_outlined,
-                                  color: Constants.darkpp),
-                              const SizedBox(width: 5),
-                              Text(shares.toString()),
-                            ],
-                          ),
-                        )
-                      ],
+                            // 💬 COMMENT
+                            InkWell(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => CommentScreen(postId: postId),
+                                  ),
+                                );
+                              },
+                              child: Row(
+                                children: [
+                                  Icon(Icons.comment_outlined,
+                                      color: Constants.darkgreen),
+                                  const SizedBox(width: 5),
+                                  Text((postData['comments'] ?? 0).toString()),
+                                ],
+                              ),
+                            ),
+
+                            // 🔄 SHARE
+                            InkWell(
+                              onTap: () async {
+                                try {
+                                  await Share.share('Xem bài viết này: $content');
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text("Lỗi khi chia sẻ bài viết")),
+                                  );
+                                }
+                              },
+                              child: Row(
+                                children: [
+                                  Icon(Icons.share_outlined,
+                                      color: Constants.darkpp),
+                                  const SizedBox(width: 5),
+                                  Text((postData['shares'] ?? 0).toString()),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ],

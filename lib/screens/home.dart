@@ -34,6 +34,7 @@ class _GoogleMapsControllerState extends State<GoogleMapsController> {
     determinePosition().then(
       (position) {
         getUserAddress(position);
+        if (!mounted) return;
         setState(
           () {
             _center = LatLng(position.latitude, position.longitude);
