@@ -1,71 +1,225 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
-import '../services/group_call_service.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
+import '../services/group_call_service.dart';
+
 class GroupCallScreen extends StatefulWidget {
-  final String roomId;
+  final String groupCallId;
   final bool audioOnly;
   final bool isCaller;
-  bool isConnected;
+  final List<String> participants;
+  final String title;
 
-  GroupCallScreen({
-    required this.roomId,
-    this.audioOnly = false,
+  const GroupCallScreen({
+    super.key,
+    required this.groupCallId,
+    required this.audioOnly,
     required this.isCaller,
-    this.isConnected = false,
-    super.key});
+    required this.participants,
+    required this.title,
+  });
 
   @override
   State<GroupCallScreen> createState() => _GroupCallScreenState();
 }
 
 class _GroupCallScreenState extends State<GroupCallScreen> {
-  final groupService = GroupCallService();
+  final GroupCallService callService = GroupCallService();
+
+  StreamSubscription<DocumentSnapshot>? _groupSub;
+  StreamSubscription<QuerySnapshot>? _peerSub;
 
   @override
   void initState() {
     super.initState();
-    _join();
+
+    /// 🔥 rebuild UI khi có remote video
+    callService.onRemoteStream = () {
+      if (mounted) setState(() {});
+    };
+    callService.onLocalStream = () {
+      if (mounted) setState(() {});
+    };
+    callService.initialize().then((_) async {
+      if (widget.isCaller) {
+        await callService.startGroupCall(
+          widget.groupCallId,
+          widget.participants,
+          audioOnly: widget.audioOnly,
+        );
+      } else {
+        _answerAllPeers();
+      }
+    });
+    _listenGroupStatus();
   }
 
-  Future<void> _join() async {
-    await groupService.joinRoom(widget.roomId, audioOnly: widget.audioOnly);
-    setState(() {});
+  // ================= ANSWER ALL PEERS =================
+
+  void _answerAllPeers() {
+    final myUid = FirebaseAuth.instance.currentUser!.uid;
+
+    _peerSub = FirebaseFirestore.instance
+        .collection('group_calls')
+        .doc(widget.groupCallId)
+        .collection('peers')
+        .snapshots()
+        .listen((snapshot) async {
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+
+        if (data['receiver'] == myUid && data['answer'] == null) {
+          await callService.answerGroupCall(
+            widget.groupCallId,
+            doc.id,
+            audioOnly: widget.audioOnly,
+          );
+        }
+      }
+    });
+  }
+
+  // ================= GROUP STATUS =================
+
+  void _listenGroupStatus() {
+    _groupSub = FirebaseFirestore.instance
+        .collection('group_calls')
+        .doc(widget.groupCallId)
+        .snapshots()
+        .listen((doc) async {
+      final data = doc.data();
+      if (data == null) return;
+
+      if (data['status'] == 'ended') {
+        await _closeAndExit();
+      }
+    });
+  }
+
+  Future<void> _closeAndExit() async {
+    await _groupSub?.cancel();
+    await _peerSub?.cancel();
+    await callService.dispose();
+
+    if (mounted) Navigator.pop(context);
   }
 
   @override
   void dispose() {
-    groupService.leaveRoom(widget.roomId);
+    _groupSub?.cancel();
+    _peerSub?.cancel();
+    callService.dispose();
     super.dispose();
   }
+
+  // ================= UI =================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: widget.audioOnly
-          ? Center(child: Icon(Icons.phone_in_talk_rounded, size: 80, color: Colors.white))
-          : Stack(
+      body: Stack(
         children: [
-          GridView.count(
-            crossAxisCount: 2,
-            children: groupService.remoteRenderers.values
-                .map((r) => RTCVideoView(r))
-                .toList(),
-          ),
-          Positioned(
-            right: 20,
-            bottom: 20,
-            width: 120,
-            height: 160,
-            child: RTCVideoView(groupService.localRenderer, mirror: true),
-          ),
+          widget.audioOnly ? _audioUI() : _videoGrid(),
+          _endCallButton(),
         ],
       ),
     );
   }
+
+  // ================= AUDIO =================
+
+  Widget _audioUI() => Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.groups, size: 80, color: Colors.white),
+        const SizedBox(height: 20),
+        Text(
+          widget.title,
+          style: const TextStyle(color: Colors.white, fontSize: 22),
+        ),
+      ],
+    ),
+  );
+
+  // ================= VIDEO GRID =================
+
+  Widget _videoGrid() {
+    final remotes = callService.remoteRenderers.values.toList();
+    final count = remotes.length + 1; // local + remotes
+
+    int crossAxisCount = 1;
+    if (count > 2) crossAxisCount = 2;
+    if (count > 4) crossAxisCount = 3;
+
+    return GridView.count(
+      crossAxisCount: crossAxisCount,
+      children: [
+        _videoTile(
+          callService.localRenderer,
+          mirror: true,
+          label: 'You',
+        ),
+        ...remotes.map((r) => _videoTile(r)),
+      ],
+    );
+  }
+
+  Widget _videoTile(
+      RTCVideoRenderer renderer, {
+        bool mirror = false,
+        String? label,
+      }) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        RTCVideoView(
+          renderer,
+          mirror: mirror,
+          objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+        ),
+        if (label != null)
+          Positioned(
+            left: 8,
+            bottom: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                label,
+                style: const TextStyle(color: Colors.green, fontSize: 12),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ================= END =================
+
+  Widget _endCallButton() => Positioned(
+    bottom: 50,
+    left: 100,
+    right: 100,
+    child: FloatingActionButton(
+      backgroundColor: Colors.red,
+      child: const Icon(Icons.call_end, size: 32),
+      onPressed: () async {
+        await FirebaseFirestore.instance
+            .collection('group_calls')
+            .doc(widget.groupCallId)
+            .update({'status': 'ended'});
+
+        await _closeAndExit();
+      },
+    ),
+  );
 }

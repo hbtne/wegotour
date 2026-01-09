@@ -20,6 +20,10 @@ class PlaceCard extends StatefulWidget {
 class _PlaceCardState extends State<PlaceCard> {
   @override
   Widget build(BuildContext context) {
+    final ratingCount = widget.place.ratingCountYear ?? 0;
+    final rating = ratingCount == 0 || widget.place.ratingSumYear == 0
+        ? 3.0
+        : (widget.place.ratingSumYear ?? 0) / ratingCount;
     return Padding(
       padding: const EdgeInsets.only(top: 5.0, bottom: 5.0),
       child: SizedBox(
@@ -75,7 +79,7 @@ class _PlaceCardState extends State<PlaceCard> {
                           child: Row(
                             children: <Widget>[
                               Text(
-                                " ${widget.place.rating} ",
+                                " ${rating.toStringAsFixed(1)} ",
                                 style: const TextStyle(
                                   fontSize: 12.0,
                                   color: Colors.white,

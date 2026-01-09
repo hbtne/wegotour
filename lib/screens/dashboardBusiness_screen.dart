@@ -232,7 +232,7 @@ class _MenuBusinessState extends State<MenuBusiness> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          buildPlaceRow('Địa Điểm Văn Hóa', places, context),
+                          buildPlaceRow('Địa Điểm', places, 'stourplace1', context),
                           buildPlaceList(context, places, 'stourplace1'),
                         ],
                       );
@@ -254,7 +254,7 @@ class _MenuBusinessState extends State<MenuBusiness> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          buildPlaceRow('Đặc Sản', food, context),
+                          buildPlaceRow('Đặc Sản', food, 'food', context),
                           buildPlaceList(context, food, 'food'),
                         ],
                       );
@@ -387,7 +387,7 @@ Widget buildPlaceList(BuildContext context, List<Place> source, String collectio
   );
 }
 
-Widget buildPlaceRow(String place, List<Place> source, BuildContext context) {
+Widget buildPlaceRow(String place, List<Place> source, String collectionName, BuildContext context) {
   return Row(
     mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: <Widget>[
@@ -411,7 +411,7 @@ Widget buildPlaceRow(String place, List<Place> source, BuildContext context) {
             context,
             MaterialPageRoute(
               builder: (BuildContext context) {
-                return Trending(source: source);
+                return Trending(source: source, collectionName: collectionName,);
               },
             ),
           );

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -165,17 +166,21 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   }
 
   Future<void> _selectMembers() async {
-    final usersSnapshot =
-        await FirebaseFirestore.instance.collection('users').get();
+    final groupDoc = await FirebaseFirestore.instance
+        .collection("groups")
+        .doc(widget.groupId)
+        .get();
 
-    final allUsers = usersSnapshot.docs.map((doc) {
-      final data = doc.data();
-      return {
-        'id': doc.id,
-        'username': data['username'] ?? 'Người dùng',
-        'avatar': data['avatar'] ?? '',
-      };
-    }).toList();
+    final membersData = groupDoc.data()?['members'] ?? [];
+
+    final allMembers = membersData
+        .whereType<Map<String, dynamic>>()
+        .map((m) => {
+      'id': m['id']?.toString() ?? '',
+      'name': m['name']?.toString() ?? 'Không tên',
+      'avatar': m['avatar']?.toString() ?? '',
+    })
+        .toList();
 
     final selected = await showDialog<List<Map<String, dynamic>>>(
       context: context,
@@ -188,10 +193,17 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               title: const Text('Chọn thành viên'),
               content: SizedBox(
                 width: double.maxFinite,
-                child: ListView(
-                  children: allUsers.map((user) {
+                child: ListView.builder(
+                  itemCount: allMembers.length,
+                  itemBuilder: (context, index) {
+                    final user = allMembers[index];
+                    final userId = user['id'];
+                    final userName = user['name'];
+                    final avatarUrl = user['avatar'];
+
                     final isSelected =
-                        tempSelected.any((u) => u['id'] == user['id']);
+                    tempSelected.any((u) => u['id'] == userId);
+
                     return CheckboxListTile(
                       value: isSelected,
                       onChanged: (checked) {
@@ -199,8 +211,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           if (checked == true) {
                             tempSelected.add(user);
                           } else {
-                            tempSelected.removeWhere(
-                                (u) => u['id'] == user['id']);
+                            tempSelected.removeWhere((u) => u['id'] == userId);
                           }
                         });
                       },
@@ -208,17 +219,17 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         children: [
                           CircleAvatar(
                             radius: 18,
-                            backgroundImage: (user['avatar']?.isNotEmpty ?? false)
-                                ? NetworkImage(user['avatar'])
+                            backgroundImage: avatarUrl.isNotEmpty
+                                ? NetworkImage(avatarUrl)
                                 : const AssetImage('assets/default_avatar.png')
-                                    as ImageProvider,
+                            as ImageProvider,
                           ),
                           const SizedBox(width: 12),
-                          Text(user['username']),
+                          Text(userName),
                         ],
                       ),
                     );
-                  }).toList(),
+                  },
                 ),
               ),
               actions: [
@@ -382,7 +393,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       child: _buildMemberCircle('+', 'Thêm', isAdd: true),
                     ),
                     for (var m in members)
-                      _buildMemberCircle(m['avatar'], m['username']),
+                      _buildMemberCircle(m['avatar'], m['name']),
                   ],
                 ),
 

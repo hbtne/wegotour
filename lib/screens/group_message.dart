@@ -1,4 +1,3 @@
-// ...existing code...
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,14 +5,18 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:stour/screens/call_screen.dart';
 import 'package:stour/screens/group_call_screen.dart';
 import 'package:stour/services/cloudinary_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../assets/icons/call_video_svg.dart';
 import '../services/auth_service.dart';
+import '../widgets/location_message_bubble.dart';
+import 'friend_message.dart';
 
 class GroupChatScreen extends StatefulWidget {
   final String groupId;
@@ -111,8 +114,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   Future<void> _pickImageAndSend() async {
-    // Opens bottom sheet to choose camera or gallery
-    final source = await showModalBottomSheet<ImageSource>(
+    final action = await showModalBottomSheet<SendAction>(
       context: context,
       builder: (c) => SafeArea(
         child: Wrap(
@@ -120,12 +122,17 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             ListTile(
               leading: const Icon(Icons.photo_library),
               title: const Text('Thư viện'),
-              onTap: () => Navigator.pop(c, ImageSource.gallery),
+              onTap: () => Navigator.pop(c, SendAction.gallery),
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt),
               title: const Text('Máy ảnh'),
-              onTap: () => Navigator.pop(c, ImageSource.camera),
+              onTap: () => Navigator.pop(c, SendAction.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.place),
+              title: const Text('Chia sẻ vị trí'),
+              onTap: () => Navigator.pop(c, SendAction.location),
             ),
             ListTile(
               leading: const Icon(Icons.close),
@@ -137,13 +144,70 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       ),
     );
 
-    if (source == null) return;
+    if (!mounted || action == null) return;
 
-    final XFile? picked = await _picker.pickImage(source: source, imageQuality: 75);
-    if (picked == null) return;
+    if (action == SendAction.location) {
+      if (user == null) return;
+
+      try {
+        await sendLocationMessage(widget.groupId, user!.uid);
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không gửi được vị trí')),
+        );
+      }
+      return;
+    }
+
+    /// -------- IMAGE --------
+    final ImageSource source =
+    action == SendAction.camera ? ImageSource.camera : ImageSource.gallery;
+
+    final XFile? picked =
+    await _picker.pickImage(source: source, imageQuality: 75);
+
+    if (!mounted || picked == null) return;
 
     final file = File(picked.path);
     await _uploadAndSendImage(file);
+  }
+
+  Future<void> sendLocationMessage(String chatId, String senderId) async {
+    final position = await getCurrentLocation();
+
+    await FirebaseFirestore.instance
+        .collection('groups')
+        .doc(chatId)
+        .collection('messages')
+        .add({
+      'senderId': senderId,
+      'avatarUrl': AuthService.getCurrentUserAvatar(),
+      'type': 'location',
+      'lat': position.latitude,
+      'lng': position.longitude,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<Position> getCurrentLocation() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      throw Exception("Location service disabled");
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      throw Exception("Location permission permanently denied");
+    }
+
+    return await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
   }
 
   // Use Cloudinary upload (same UX as ai_chatbox but uploading to Cloudinary)
@@ -230,6 +294,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       await msgRef.add({
         'senderId': user!.uid,
         'senderName': user!.displayName ?? 'Ẩn danh',
+        'avatarUrl': AuthService.getCurrentUserAvatar(),
         'text': text,
         'imageUrl': '', // nếu không có ảnh thì rỗng
         'createdAt': FieldValue.serverTimestamp(),
@@ -259,38 +324,39 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     }
   }
 
-  Widget _messageRow({required String name, required String msg, required String imageUrl}) {
+  Widget _messageRow(Map<String, dynamic> msg) {
     const Color greenBubble = Color(0xFF8E9F87);
+    final avatarUrl = (msg['avatarUrl'] ?? '') as String;
+    if (msg['type'] == 'location') {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            backgroundColor: Colors.transparent,
+            backgroundImage: avatarUrl != ""
+                ? NetworkImage(avatarUrl)
+                : const AssetImage(
+                'assets/default_avatar.png') as ImageProvider,
+          ),
+          LocationMessageBubble(
+            lat: msg['lat'],
+            lng: msg['lng'],
+          )
+        ],
+      );
+    }
+
+    final imageUrl = (msg['imageUrl'] ?? '') as String;
+    final text = (msg['text'] ?? '') as String;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          children: [
-            // Text(
-            //   name,
-            //   style: const TextStyle(
-            //     fontWeight: FontWeight.w600,
-            //     fontSize: 13,
-            //     color: Colors.black,
-            //   ),
-            // ),
-            // const SizedBox(height: 4),
-            SizedBox(
-              width: 40,
-              height: 40,
-              // decoration: const BoxDecoration(
-              //   color: Color(0xFF97A989),
-              //   shape: BoxShape.circle,
-              // ),
-              child: CircleAvatar(
-                backgroundColor: Colors.transparent,
-                backgroundImage: imageUrl != ""
-                    ? NetworkImage(imageUrl)
-                    : const AssetImage('assets/default_avatar.png') as ImageProvider,
-              ),
-            ),
-          ],
+        CircleAvatar(
+          backgroundColor: Colors.transparent,
+          backgroundImage: avatarUrl != ""
+              ? NetworkImage(avatarUrl)
+              : const AssetImage('assets/default_avatar.png') as ImageProvider,
         ),
         const SizedBox(width: 12),
         Flexible(
@@ -311,7 +377,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       child: Image.network(imageUrl, fit: BoxFit.cover),
                     ),
                   ),
-                if (msg.isNotEmpty) Text(msg, style: const TextStyle(fontSize: 16)),
+                if (msg.isNotEmpty) Text(text, style: const TextStyle(fontSize: 16)),
               ],
             ),
           ),
@@ -320,8 +386,23 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     );
   }
 
-  Widget _messageSelf(String msg, String imageUrl) {
+  Widget _messageSelf(Map<String, dynamic> msg) {
     const Color yellowBubble = Color(0xFFFFE7A6);
+    if (msg['type'] == 'location') {
+      return GestureDetector(
+        onTap: () {
+          final url =
+              "https://www.google.com/maps/search/?api=1&query=$msg['lat'],$msg['lng']";
+          launchUrl(Uri.parse(url));
+        },
+        child: LocationMessageBubble(
+            lat: msg['lat'],
+            lng: msg['lng']),
+      );
+    }
+
+    final text = (msg['text'] ?? '') as String;
+    final imageUrl = (msg['imageUrl'] ?? '') as String;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
@@ -344,7 +425,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       child: Image.network(imageUrl, fit: BoxFit.cover),
                     ),
                   ),
-                if (msg.isNotEmpty) Text(msg, style: const TextStyle(fontSize: 16)),
+                if (msg.isNotEmpty) Text(text, style: const TextStyle(fontSize: 16)),
               ],
             ),
           ),
@@ -353,19 +434,31 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     );
   }
   void _onCall(bool audioOnly) async {
-    final callDoc = FirebaseFirestore.instance.collection('calls').doc();
+    final callDoc = FirebaseFirestore.instance.collection('group_calls').doc();
     final callId = callDoc.id;
     final groupDoc = await FirebaseFirestore.instance.collection('groups').doc(widget.groupId).get();
     final groupData = groupDoc.data();
 
+    final membersRaw = groupData?['members'];
+
+    if (membersRaw == null || membersRaw is! List) {
+      print('Members is null or not a list');
+      return;
+    }
+
+    final List<String> memberIds = membersRaw
+        .whereType<Map<String, dynamic>>()
+        .map((m) => m['id'] as String?)
+        .whereType<String>()
+        .toList();
+
+    memberIds.remove(AuthService.getCurrentUserId());
+
     await callDoc.set({
       "callerId": AuthService.getCurrentUserId(),
       "callerName": AuthService.getCurrentUserName(),
-      // "calleeId": widget.friendId,
-      // "calleeName": widget.friendName,
-      "participants": [
-        groupData?['member'] as List<String>
-      ],
+      "groupName": widget.groupName,
+      "participants": memberIds,
       "status": "ringing",
       "mode": audioOnly ? "audio" : "video",
       "createdAt": FieldValue.serverTimestamp()
@@ -375,9 +468,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => GroupCallScreen(
-          roomId: callId,
+          groupCallId: callId,
           audioOnly: audioOnly,
           isCaller: true,
+          participants: memberIds,
+          title: widget.groupName,
         ),
       ),
     );
@@ -430,10 +525,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     onPressed: () => _onCall(true),
                     icon: Icon(Icons.phone, color: primary),
                   ),
-                  SizedBox(width: 10,),
                   IconButton(
                       onPressed: () => _onCall(false),
-                      icon: Icon(Icons.videocam_outlined, color: primary,))
+                      icon: Icon(Icons.videocam, color: primary,))
                 ],
               ),
             ),
@@ -462,14 +556,12 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     itemBuilder: (context, index) {
                       final msg = messages[index].data() as Map<String, dynamic>;
                       final isSelf = msg['senderId'] == user?.uid;
-                      final text = (msg['text'] ?? '') as String;
-                      final imageUrl = (msg['imageUrl'] ?? '') as String;
 
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: isSelf
-                            ? _messageSelf(text, imageUrl)
-                            : _messageRow(name: msg['senderName'] ?? '', msg: text, imageUrl: imageUrl),
+                            ? _messageSelf(msg)
+                            : _messageRow(msg),
                       );
                     },
                   );

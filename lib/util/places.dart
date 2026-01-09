@@ -15,12 +15,16 @@ class Place {
   final String city;
   final int? checkinCount;
   final int? reviewCount;
+  final int? ratingCount;
+  final int? ratingSum;
   final int? checkinCountMonth;
   final int? reviewCountMonth;
-  final String? ratingMonth;
+  final int? ratingCountMonth;
+  final int? ratingSumMonth;
   final int? checkinCountYear;
   final int? reviewCountYear;
-  final String? ratingYear;
+  final int? ratingCountYear;
+  final int? ratingSumYear;
   bool isAccepted; // Thêm trường isAccepted
 
   Place({
@@ -38,12 +42,16 @@ class Place {
     required this.closeTime,
      this.checkinCount,
      this.reviewCount,
+    this.ratingCount,
+    this.ratingSum,
      this.checkinCountMonth,
      this.reviewCountMonth,
-     this.ratingMonth,
+    this.ratingCountMonth,
+    this.ratingSumMonth,
      this.checkinCountYear,
      this.reviewCountYear,
-     this.ratingYear,
+    this.ratingCountYear,
+    this.ratingSumYear,
     required this.isAccepted,
   });
   factory Place.fromDocument(DocumentSnapshot doc) {
@@ -64,12 +72,16 @@ class Place {
       closeTime: data['closetime'] ?? 0,
       checkinCount: data['checkinCount'] ?? 10,
       reviewCount: data['reviewCount'] ?? 25,
+      ratingCount: data['ratingCount'] ?? 3,
+      ratingSum: data['ratingSum'] ?? 1,
       checkinCountMonth: data['checkinCountMonth'] ?? 10,
       reviewCountMonth: data['reviewCountMonth'] ?? 25,
-      ratingMonth: data['ratingMonth'] ?? "5",
+      ratingCountMonth: data['ratingCountMonth'] ?? 3,
+      ratingSumMonth: data['ratingSumMonth'] ?? 1,
       checkinCountYear: data['checkinCountYear'] ?? 10,
       reviewCountYear: data['reviewCountYear'] ?? 25,
-      ratingYear: data['ratingYear'] ?? "4.9",
+      ratingCountYear: data['ratingCountYear'] ?? 3,
+      ratingSumYear: data['ratingSumYear'] ?? 1,
       isAccepted: data['isAccepted'] ?? false, // Thêm trường isAccepted
     );
   }
@@ -119,12 +131,16 @@ class SavedTourClass {
         city: placeData['city'] ?? '',
         checkinCount: data['checkinCount'] ?? 10,
         reviewCount: data['reviewCount'] ?? 25,
+        ratingCount: data['ratingCount'] ?? 3,
+        ratingSum: data['ratingSum'] ?? 1,
         checkinCountMonth: data['checkinCountMonth'] ?? 10,
         reviewCountMonth: data['reviewCountMonth'] ?? 25,
-        ratingMonth: data['ratingMonth'] ?? "5",
+        ratingCountMonth: data['ratingCountMonth'] ?? 3,
+        ratingSumMonth: data['ratingSumMonth'] ?? 1,
         checkinCountYear: data['checkinCountYear'] ?? 10,
         reviewCountYear: data['reviewCountYear'] ?? 25,
-        ratingYear: data['ratingYear'] ?? "4.9",
+        ratingCountYear: data['ratingYear'] ?? 3,
+        ratingSumYear: data['ratingYear'] ?? 1,
         isAccepted: placeData['isAccepted'] ?? true, // Thêm trường isAccepted
       );
 

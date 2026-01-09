@@ -180,7 +180,7 @@ class _MenuAdminState extends State<MenuAdmin> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          buildPlaceRow('Địa Điểm Văn Hóa', places, context),
+                          buildPlaceRow('Địa Điểm', places, 'stourplace1', context),
                           buildPlaceList(context, places, 'stourplace1'),
                         ],
                       );
@@ -202,7 +202,7 @@ class _MenuAdminState extends State<MenuAdmin> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          buildPlaceRow('Đặc Sản', food, context),
+                          buildPlaceRow('Đặc Sản', food, 'food', context),
                           buildPlaceList(context, food, 'food'),
                         ],
                       );
@@ -551,7 +551,7 @@ Widget buildPlaceList(
   );
 }
 
-Widget buildPlaceRow(String place, List<Place> source, BuildContext context) {
+Widget buildPlaceRow(String place, List<Place> source, String collectionName, BuildContext context) {
   return Row(
     mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: <Widget>[
@@ -563,24 +563,27 @@ Widget buildPlaceRow(String place, List<Place> source, BuildContext context) {
           color: Color(0xFF3B6332),
         ),
       ),
-      TextButton(
-        child: Text(
-          "Xem tất cả (${source.length})",
-          style: TextStyle(
-            color: Constants.ratingBG,
-          ),
-        ),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (BuildContext context) {
-                return Trending(source: source);
-              },
+      Flexible(
+        child: TextButton(
+          child: Text(
+            "Xem tất cả (${source.length})",
+            style: TextStyle(
+              color: Constants.ratingBG,
             ),
-          );
-        },
-      ),
+          ),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (BuildContext context) {
+                  return Trending(
+                      source: source, collectionName: collectionName);
+                },
+              ),
+            );
+          },
+        ),
+      )
     ],
   );
 }

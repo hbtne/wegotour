@@ -9,55 +9,82 @@ import 'package:stour/main.dart';
 class CallListener {
   final _db = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
-  StreamSubscription<QuerySnapshot>? _sub;
+
+  StreamSubscription<QuerySnapshot>? _callSub;
+  StreamSubscription<QuerySnapshot>? _groupCallSub;
 
   final Set<String> _shown = {};
-  bool _dialogShown = false;   // ⬅ ADD: tránh showDialog 2 lần
 
   void start() {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
+
     print("Call listener starting...");
 
-    _sub = _db
+    /// ===== 1–1 CALL =====
+    _callSub = _db
         .collection('calls')
+        .where('status', isEqualTo: 'ringing')
+        .where('status', whereIn: ['ringing', 'calling'])
+        .snapshots()
+        .listen((query) {
+      for (var doc in query.docs) {
+        _handleIncoming(
+          callId: doc.id,
+          data: doc.data() as Map<String, dynamic>,
+          isGroup: false,
+        );
+      }
+    });
+
+    /// ===== GROUP CALL =====
+    _groupCallSub = _db
+        .collection('group_calls')
         .where('status', isEqualTo: 'ringing')
         .where('participants', arrayContains: uid)
         .snapshots()
         .listen((query) {
-      print('LISTENER STILL ACTIVE');
       for (var doc in query.docs) {
-        _handleIncoming(doc.id, doc.data() as Map<String, dynamic>);
+        _handleIncoming(
+          callId: doc.id,
+          data: doc.data() as Map<String, dynamic>,
+          isGroup: true,
+        );
       }
     });
   }
 
-  void _handleIncoming(String callId, Map<String, dynamic> data) {
-    print(_shown);
+  void _handleIncoming({
+    required String callId,
+    required Map<String, dynamic> data,
+    required bool isGroup,
+  }) {
     if (_shown.contains(callId)) return;
-    print(_dialogShown);
-    // if (_dialogShown) return;             // ⬅ ADD: dialog đang mở → không mở tiếp
 
     _shown.add(callId);
-    _dialogShown = true;                  // ⬅ ADD
+
     final callType = data['mode'] as String? ?? 'audio';
-    final callerName = data['callerName'] as String? ?? 'Người gọi';
-    final callerAvatar = data['callerAvatar'] as String? ?? '';
-    // ⬅ FIX: participants cast an toàn
+
+    final callerName = isGroup
+        ? (data['groupName'] as String? ?? 'Cuộc gọi nhóm')
+        : (data['callerName'] as String? ?? 'Người gọi');
+
+    final callerAvatar = isGroup
+        ? (data['groupAvatar'] as String? ?? '')
+        : (data['callerAvatar'] as String? ?? '');
+
     final participants = (data['participants'] as List<dynamic>? ?? [])
         .map((e) => e.toString())
         .toList();
 
     playRingtone();
 
-    // ⬅ FIX: context an toàn hơn
     final ctx = navigatorKey.currentContext;
-    print(ctx);
     if (ctx == null) {
-      _dialogShown = false;
+      _shown.remove(callId);
       return;
     }
-    print("opening incomming screen...");
+
     showDialog(
       context: ctx,
       barrierDismissible: false,
@@ -67,16 +94,17 @@ class CallListener {
         callerAvatar: callerAvatar,
         callType: callType,
         participants: participants,
+        isGroup: isGroup,// 👈 thêm nhưng KHÔNG ảnh hưởng logic cũ
         onFinish: () {
           stopRingtone();
           _shown.remove(callId);
-          _dialogShown = false;        // ⬅ RELEASE dialog flag
         },
       ),
     );
   }
 
   void dispose() {
-    _sub?.cancel();
+    _callSub?.cancel();
+    _groupCallSub?.cancel();
   }
 }

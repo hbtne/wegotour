@@ -34,12 +34,16 @@ Stream<List<Place>> getAllPlaceFoodStream(String collection) {
           openTime: data['opentime'] ?? 0,
           checkinCount: data['checkinCount'] ?? 10,
           reviewCount: data['reviewCount'] ?? 25,
+          ratingCount: data['ratingCount'] ?? 3,
+          ratingSum: data['ratingSum'] ?? 1,
           checkinCountMonth: data['checkinCountMonth'] ?? 10,
           reviewCountMonth: data['reviewCountMonth'] ?? 25,
-          ratingMonth: data['ratingMonth'] ?? '5',
+          ratingCountMonth: data['ratingCountMonth'] ?? 3,
+          ratingSumMonth: data['ratingSumMonth'] ?? 1,
           checkinCountYear: data['checkinCountYear'] ?? 10,
           reviewCountYear: data['reviewCountYear'] ?? 25,
-          ratingYear: data['ratingYear'] ?? '4.9',
+          ratingCountYear: data['ratingCountYear'] ?? 3,
+          ratingSumYear: data['ratingSumYear'] ?? 1,
           isAccepted: data['isAccepted'] ?? false, // Thêm trường isAccepted
         );
 
@@ -94,12 +98,16 @@ Future<void> saveTourToFirebase(String userId, SavedTourClass savedTour) async {
           'city': place.city,
           'checkinCount': place.checkinCount,
           'reviewCount': place.reviewCount,
+          'ratingCount': place.ratingCount,
+          'ratingSum': place.ratingSum,
           'checkinCountMonth': place.checkinCountMonth,
           'reviewCountMonth': place.reviewCountMonth,
-          'ratingMonth': place.ratingMonth,
+          'ratingCountMonth': place.ratingCountMonth,
+          'ratingSumMonth': place.ratingSumMonth,
           'checkinCountYear': place.checkinCountYear,
           'reviewCountYear': place.reviewCountYear,
-          'ratingYear': place.ratingYear,
+          'ratingCountYear': place.ratingCountYear,
+          'ratingSumYear': place.ratingSumYear,
           'isAccepted': place.isAccepted, // Thêm trường isAccepted
         });
       }

@@ -380,3 +380,207 @@ exports.awardBadgesScheduled = functions.pubsub
       return null;
     }
   });
+
+const PLACE_COLLECTIONS = ["stourplace1", "food"];
+
+function getKeys(date) {
+  const y = date.getFullYear();
+  const m = (date.getMonth() + 1).toString().padStart(2, "0");
+  const d = date.getDate().toString().padStart(2, "0");
+
+  return {
+    dayKey: `${y}-${m}-${d}`,
+    monthKey: `${y}-${m}`,
+    yearKey: `${y}`,
+  };
+}
+
+async function updatePlaceStats(placeId, data) {
+  const tasks = PLACE_COLLECTIONS.map(col =>
+    db.collection(col)
+      .doc(placeId)
+      .set(data, { merge: true })
+  );
+
+  return Promise.all(tasks);
+}
+
+function normalizePlaceIds(places) {
+  return (Array.isArray(places) ? places : [places])
+    .map(p => typeof p === "string" ? p.trim() : "")
+    .filter(p => p.length > 0);
+}
+
+/**
+ * ============================
+ *  POST CREATED → CHECKIN COUNT
+ * ============================
+ */
+exports.onPostCreatedStats = onDocumentCreated(
+  "posts/{postId}",
+  async (event) => {
+    const post = event.data?.data();
+    if (!post) return null;
+
+    const createdAt =
+      post.createdAt?.toDate?.() ||
+      (typeof post.createdAt === "string"
+        ? new Date(post.createdAt)
+        : null);
+
+    if (!createdAt) return null;
+
+    const places = normalizePlaceIds(post.places);
+    if (!places.length) return null;
+
+    const { dayKey, monthKey, yearKey } = getKeys(createdAt);
+
+    const tasks = PLACE_COLLECTIONS.flatMap((col) =>
+      places.map(async (placeId) => {
+        const ref = db.collection(col).doc(placeId);
+
+        await db.runTransaction(async (tx) => {
+          const snap = await tx.get(ref);
+          if (!snap.exists) return;
+
+          const data = snap.data() || {};
+          const update = {};
+
+          // --- Reset theo CHECKIN key ---
+          if (data.checkinDayKey !== dayKey) {
+            update.checkinCount = 0;
+            update.checkinDayKey = dayKey;
+          }
+
+          if (data.checkinMonthKey !== monthKey) {
+            update.checkinCountMonth = 0;
+            update.checkinMonthKey = monthKey;
+          }
+
+          if (data.checkinYearKey !== yearKey) {
+            update.checkinCountYear = 0;
+            update.checkinYearKey = yearKey;
+          }
+
+          // --- Increment ---
+          update.checkinCount =
+            admin.firestore.FieldValue.increment(1);
+          update.checkinCountMonth =
+            admin.firestore.FieldValue.increment(1);
+          update.checkinCountYear =
+            admin.firestore.FieldValue.increment(1);
+
+          update.latestRankingUpdate = Date.now();
+
+          tx.set(ref, update, { merge: true });
+        });
+      })
+    );
+
+    await Promise.all(tasks);
+    logger.info("✅ Updated checkin stats", places);
+    return null;
+  }
+);
+
+/**
+ * ============================
+ *  REVIEW CREATED → REVIEW COUNT
+ * ============================
+ */
+exports.onReviewCreatedStats = onDocumentCreated(
+  "reviews/{reviewId}",
+  async (event) => {
+    const review = event.data?.data();
+    if (!review) return null;
+
+    const placeId =
+      typeof review.idLocation === "string"
+        ? review.idLocation.trim()
+        : "";
+
+    if (!placeId) return null;
+
+    const createdAt =
+      review.createdAt?.toDate?.() ||
+      (typeof review.createdAt === "string"
+        ? new Date(review.createdAt)
+        : null);
+
+    if (!createdAt) return null;
+
+    const scoreRaw = review.score;
+    const score = Number.isFinite(Number(scoreRaw))
+      ? Math.round(Number(scoreRaw))
+      : null;
+
+    const { dayKey, monthKey, yearKey } = getKeys(createdAt);
+
+    const tasks = PLACE_COLLECTIONS.map(async (col) => {
+      const ref = db.collection(col).doc(placeId);
+
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return;
+
+        const data = snap.data() || {};
+        const update = {};
+
+        // --- Reset REVIEW key ---
+        if (data.reviewDayKey !== dayKey) {
+          update.reviewCount = 0;
+          update.ratingSum = 0;
+          update.ratingCount = 0;
+          update.reviewDayKey = dayKey;
+        }
+
+        if (data.reviewMonthKey !== monthKey) {
+          update.reviewCountMonth = 0;
+          update.ratingSumMonth = 0;
+          update.ratingCountMonth = 0;
+          update.reviewMonthKey = monthKey;
+        }
+
+        if (data.reviewYearKey !== yearKey) {
+          update.reviewCountYear = 0;
+          update.ratingSumYear = 0;
+          update.ratingCountYear = 0;
+          update.reviewYearKey = yearKey;
+        }
+
+        // --- Increment REVIEW ---
+        update.reviewCount =
+          admin.firestore.FieldValue.increment(1);
+        update.reviewCountMonth =
+          admin.firestore.FieldValue.increment(1);
+        update.reviewCountYear =
+          admin.firestore.FieldValue.increment(1);
+
+        // --- Increment RATING (nếu hợp lệ) ---
+        if (score !== null) {
+          update.ratingSum =
+            admin.firestore.FieldValue.increment(score);
+          update.ratingSumMonth =
+            admin.firestore.FieldValue.increment(score);
+          update.ratingSumYear =
+            admin.firestore.FieldValue.increment(score);
+
+          update.ratingCount =
+            admin.firestore.FieldValue.increment(1);
+          update.ratingCountMonth =
+            admin.firestore.FieldValue.increment(1);
+          update.ratingCountYear =
+            admin.firestore.FieldValue.increment(1);
+        }
+
+        update.latestRankingUpdate = Date.now();
+
+        tx.set(ref, update, { merge: true });
+      });
+    });
+
+    await Promise.all(tasks);
+    logger.info("✅ Updated review & rating stats", placeId);
+    return null;
+  }
+);

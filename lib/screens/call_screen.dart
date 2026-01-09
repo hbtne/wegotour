@@ -4,7 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
-import '../services/auth_service.dart';
 import '../services/call_service.dart';
 
 class CallScreen extends StatefulWidget {
@@ -45,7 +44,7 @@ class _CallScreenState extends State<CallScreen> {
 
     callService.onRemoteStream = () {
       if (!mounted) return;
-      setState(() => widget.isConnected = true);
+      setState(() {});
     };
 
     _init();
@@ -84,13 +83,12 @@ class _CallScreenState extends State<CallScreen> {
       }
 
       if ((data['status'] == 'accepted' || data['status'] == 'calling' ) && !widget.isConnected) {
-        setState(() => widget.isConnected = true);
+        setState((){});
       }
     });
   }
 
   void _listenCallee() {
-    print(widget.isConnected);
     _callSub = FirebaseFirestore.instance
         .collection('calls')
         .doc(widget.callId)
@@ -127,33 +125,11 @@ class _CallScreenState extends State<CallScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          if (!widget.isConnected)
-            const Center(
-              child: CircularProgressIndicator(color: Colors.white),
-            )
-          else if (widget.audioOnly)
+          if (widget.audioOnly)
             _audioUI()
           else
             _videoUI(),
-          Row(
-            children: [
-              FloatingActionButton(
-                backgroundColor: isMicroOff ? Colors.red : Colors.green,
-                child: isMicroOff? Icon(Icons.mic_off_outlined, size: 32) : Icon(Icons.mic),
-                onPressed: () async {
-                  isMicroOff = !isMicroOff;
-                },
-              ),
-              FloatingActionButton(
-                backgroundColor: isVideoOff ? Colors.red : Colors.green,
-                child: isVideoOff? Icon(Icons.videocam_off_outlined, size: 32) : Icon(Icons.videocam),
-                onPressed: () async {
-                  isVideoOff = !isVideoOff;
-                },
-              ),
               _endCallButton(),
-            ],
-          )
         ],
       ),
     );
@@ -193,19 +169,13 @@ class _CallScreenState extends State<CallScreen> {
           ),
         ),
       ),
-      FloatingActionButton(
-        child: const Icon(Icons.change_circle_outlined),
-        onPressed: () async {
-          isCameraBack = !isCameraBack;
-        },
-      ),
     ],
   );
 
   Widget _endCallButton() => Positioned(
-    bottom: 40,
-    left: 0,
-    right: 0,
+    bottom: 50,
+    left: 100,
+    right: 100,
     child: FloatingActionButton(
         backgroundColor: Colors.red,
         child: const Icon(Icons.call_end, size: 32),

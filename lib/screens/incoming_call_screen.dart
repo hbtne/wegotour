@@ -11,6 +11,7 @@ class IncomingCallScreen extends StatefulWidget {
   final String callType;
   final List<String> participants;
   final VoidCallback? onFinish;
+  final bool isGroup;
 
   const IncomingCallScreen({
     required this.callId,
@@ -19,7 +20,7 @@ class IncomingCallScreen extends StatefulWidget {
     required this.callType,
     required this.participants,
     this.onFinish,
-    super.key,
+    super.key, required this.isGroup,
   });
 
   @override
@@ -32,11 +33,14 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
   final CallService callService = CallService();
 
   Future<void> _accept({required bool audioOnly}) async {
-    // if (_isProcessing) return;
-    // setState(() => _isProcessing = true);
-
     try {
-      await _db.collection('calls').doc(widget.callId).update({
+      widget.isGroup ?
+      await _db.collection('group_calls').doc(widget.callId).update({
+        'status': 'accepted',
+        'acceptedAt': FieldValue.serverTimestamp(),
+        'acceptedMode': audioOnly ? 'audio' : 'video',
+      })
+      : await _db.collection('calls').doc(widget.callId).update({
         'status': 'accepted',
         'acceptedAt': FieldValue.serverTimestamp(),
         'acceptedMode': audioOnly ? 'audio' : 'video',
@@ -46,9 +50,9 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
     Navigator.of(context).pop();
     widget.onFinish?.call();
 
-    if (widget.callType == 'group') {
+    if (widget.isGroup) {
       Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => GroupCallScreen(roomId: widget.callId, audioOnly: audioOnly, isCaller: false, isConnected: true,),
+        builder: (_) => GroupCallScreen(groupCallId: widget.callId, audioOnly: audioOnly, isCaller: false, participants: widget.participants, title: widget.callerName,),
       ));
     } else {
       Navigator.of(context).push(MaterialPageRoute(

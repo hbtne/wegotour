@@ -27,7 +27,6 @@ class CallService {
   StreamSubscription? _answerSub;
 
   bool _initialized = false;
-  bool _answered = false;
 
   VoidCallback? onLocalStream;
   VoidCallback? onRemoteStream;
@@ -364,6 +363,5 @@ class CallService {
     await remoteRenderer.dispose();
 
     _initialized = false;
-    _answered = false;
   }
 }

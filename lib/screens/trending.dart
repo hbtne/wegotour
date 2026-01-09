@@ -8,7 +8,8 @@ import 'package:stour/widgets/trending_place.dart';
 
 class Trending extends StatefulWidget {
   final List<Place> source;
-  const Trending({super.key, required this.source});
+  final String collectionName;
+  const Trending({super.key, required this.source, required this.collectionName});
 
   @override
   State<Trending> createState() => _TrendingState();
@@ -18,7 +19,7 @@ class _TrendingState extends State<Trending> {
   String? selectedCity;
   String? selectedDistrict;
   double minRating = 0.0;
-  double maxPrice = 100.0;
+  double maxPrice = 10000000.0;
 
   List<String> getUniqueCities() {
     return widget.source
@@ -37,8 +38,11 @@ class _TrendingState extends State<Trending> {
 
   List<Place> getFilteredPlaces() {
     return widget.source.where((place) {
-      final rating = double.tryParse(place.rating ?? '') ?? 0.0;
-      final price = place.price.toDouble() ?? 0.0;
+      final ratingCount = place.ratingCountYear ?? 0;
+      final rating = ratingCount == 0 || place.ratingSumYear == 0
+          ? 0.0
+          : (place.ratingSumYear ?? 3) / ratingCount;
+      final price = place.price.toDouble();
 
       return (selectedCity == null || place.city == selectedCity) &&
           (selectedDistrict == null || place.district == selectedDistrict) &&
@@ -69,7 +73,7 @@ class _TrendingState extends State<Trending> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => RankingScreen(source: widget.source)),
+                MaterialPageRoute(builder: (context) => RankingScreen(collectionName: widget.collectionName,)),
               );
             },
           ),

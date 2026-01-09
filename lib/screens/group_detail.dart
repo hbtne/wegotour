@@ -358,13 +358,31 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
   }
 
   void _showInviteDialog(BuildContext context) async {
+    final groupRef = _firestore.collection('groups').doc(widget.groupId);
+    final groupSnap = await groupRef.get();
+    final groupData = groupSnap.data();
+    final existingMembers = (groupData?['members'] as List<dynamic>? ?? [])
+        .map((m) => m['id'].toString())
+        .toSet(); // ID của các member hiện có
+
     final usersSnap = await _firestore.collection('users').get();
-    final allUsers = usersSnap.docs.map((d) => {'id': d.id, 'username': d['username'] ?? "Ẩn danh"}).toList();
+
+    // Lọc user đã là thành viên
+    final allUsers = usersSnap.docs
+        .where((d) => !existingMembers.contains(d.id))
+        .map((d) => {
+      'id': d.id,
+      'username': d.data()['username']?.toString() ?? "Ẩn danh",
+      'avatar': d.data()['avatar']?.toString() ?? '',
+    })
+        .toList();
+
     final selected = <Map<String, dynamic>>[];
 
     showDialog(
-        context: context,
-        builder: (_) => StatefulBuilder(builder: (context, setState) {
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setState) {
           return AlertDialog(
             title: const Text('Chọn bạn bè'),
             content: SizedBox(
@@ -374,37 +392,66 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                 itemCount: allUsers.length,
                 itemBuilder: (ctx, i) {
                   final u = allUsers[i];
-                  final isSel = selected.contains(u);
+                  final isSel = selected.any((s) => s['id'] == u['id']);
                   return CheckboxListTile(
-                    title: Text(u['username']),
                     value: isSel,
-                    onChanged: (v) => setState(() => v == true ? selected.add(u) : selected.remove(u)),
+                    onChanged: (v) {
+                      setState(() {
+                        if (v == true) {
+                          selected.add(u);
+                        } else {
+                          selected.removeWhere((s) => s['id'] == u['id']);
+                        }
+                      });
+                    },
+                    title: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundImage: u['avatar']!.isNotEmpty
+                              ? NetworkImage(u['avatar']!)
+                              : const AssetImage('assets/default_avatar.png')
+                          as ImageProvider,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(u['username']!),
+                      ],
+                    ),
                   );
                 },
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Hủy')),
               ElevatedButton(
-                  onPressed: () async {
-                    if (selected.isNotEmpty) {
-                      final groupRef = _firestore.collection('groups').doc(widget.groupId);
-                      for (var u in selected) {
-                        await groupRef.update({
-                          'members': FieldValue.arrayUnion([{'id': u['id'], 'name': u['username']}])
-                        });
+                onPressed: () async {
+                  if (selected.isNotEmpty) {
+                    // Chạy song song để nhanh
+                    final futures = selected.map((u) async {
+                      await groupRef.update({
+                        'members': FieldValue.arrayUnion([
+                          {'id': u['id'], 'name': u['username']}
+                        ])
+                      });
 
-                        final userRef = _firestore.collection('users').doc(u['id']);
-                        await userRef.update({
-                          'groupIds': FieldValue.arrayUnion([widget.groupId])
-                        });
-                      }
-                    }
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Xác nhận'))
+                      final userRef = _firestore.collection('users').doc(u['id']);
+                      await userRef.update({
+                        'groupIds': FieldValue.arrayUnion([widget.groupId])
+                      });
+                    }).toList();
+
+                    await Future.wait(futures);
+                  }
+                  Navigator.pop(context);
+                },
+                child: const Text('Xác nhận'),
+              ),
             ],
           );
-        }));
+        },
+      ),
+    );
   }
 }

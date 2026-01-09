@@ -164,7 +164,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
               onTap: () => Navigator.pop(c, SendAction.camera),
             ),
             ListTile(
-              leading: const Icon(Icons.close),
+              leading: const Icon(Icons.place),
               title: const Text('Chia sẻ vị trí'),
               onTap: () => Navigator.pop(c, SendAction.location),
             ),
@@ -275,6 +275,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       await msgRef.add({
         'senderId': user!.uid,
         'senderName': user!.displayName ?? 'Ẩn danh',
+        'avatarUrl': AuthService.getCurrentUserAvatar(),
         'text': text,
         'imageUrl': '',
         'createdAt': FieldValue.serverTimestamp(),
@@ -301,11 +302,24 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
 
   Widget _messageRow(Map<String, dynamic> msg) {
     final Color greenBubble = Color(0xFF8E9F87);
+    final avatarUrl = (msg['avatarUrl'] ?? '') as String;
 
     if (msg['type'] == 'location') {
-      return LocationMessageBubble(
-        lat: msg['lat'],
-        lng: msg['lng'],
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            backgroundColor: Colors.transparent,
+            backgroundImage: avatarUrl != ""
+                ? NetworkImage(avatarUrl)
+                : const AssetImage(
+                'assets/default_avatar.png') as ImageProvider,
+          ),
+          LocationMessageBubble(
+            lat: msg['lat'],
+            lng: msg['lng'],
+          )
+        ],
       );
     }
 
@@ -317,8 +331,8 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       children: [
         CircleAvatar(
           backgroundColor: Colors.transparent,
-          backgroundImage: imageUrl != ""
-              ? NetworkImage(imageUrl)
+          backgroundImage: avatarUrl != ""
+              ? NetworkImage(avatarUrl)
               : const AssetImage('assets/default_avatar.png') as ImageProvider,
         ),
         const SizedBox(width: 12),
@@ -359,7 +373,8 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
               "https://www.google.com/maps/search/?api=1&query=$msg['lat'],$msg['lng']";
           launchUrl(Uri.parse(url));
         },
-        child: LocationMessageBubble(lat: msg['lat'],
+        child: LocationMessageBubble(
+          lat: msg['lat'],
           lng: msg['lng'],),
       );
     }
@@ -483,7 +498,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     );
   }
 
-  Future<void> sendLocationMessage(String chatId, String senderId) async {
+  Future<void> sendLocationMessage(String chatId, String senderId,) async {
     final position = await getCurrentLocation();
 
     await FirebaseFirestore.instance
@@ -492,6 +507,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
         .collection('messages')
         .add({
       'senderId': senderId,
+      'avatarUrl': AuthService.getCurrentUserAvatar(),
       'type': 'location',
       'lat': position.latitude,
       'lng': position.longitude,

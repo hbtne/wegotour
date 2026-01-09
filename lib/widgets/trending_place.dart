@@ -19,6 +19,10 @@ class TrendingPlace extends StatefulWidget {
 class _TrendingPlaceState extends State<TrendingPlace> {
   @override
   Widget build(BuildContext context) {
+    final ratingCount = widget.place.ratingCountYear ?? 0;
+    final rating = ratingCount == 0 || widget.place.ratingSumYear == 0
+        ? 3.0
+        : (widget.place.ratingSumYear ?? 3) / ratingCount;
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -78,7 +82,7 @@ class _TrendingPlaceState extends State<TrendingPlace> {
                                   size: 10.0,
                                 ),
                                 Text(
-                                  " ${widget.place.rating} ",
+                                  " ${rating.toStringAsFixed(1)} ",
                                   style: const TextStyle(
                                     fontSize: 10.0,
                                   ),
