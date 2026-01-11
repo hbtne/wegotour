@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:stour/services/vision_api_service.dart';
-import 'package:stour/services/cloudinary_service.dart'; 
+import 'package:stour/services/cloudinary_service.dart';
 import 'package:stour/assets/icons/send_svg.dart' as sendIcon;
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -149,7 +149,7 @@ class _EventSubmissionScreenState extends State<EventSubmissionScreen> {
         'userId': user.uid,
         'userName': userName,
         'userAvatar': userAvatar,
-        'imageUrl': imageUrl, // 
+        'imageUrl': imageUrl, //
         'caption': _captionController.text.trim(),
         'detectedLabels': _validationResult!['detectedLabels'] ?? [],
         'matchedKeywords': _validationResult!['matchedKeywords'] ?? [],
@@ -257,7 +257,7 @@ class _EventSubmissionScreenState extends State<EventSubmissionScreen> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white),
                     )
-                  :  SvgPicture.string(sendIcon.sendSVG, height: 40, width: 40),
+                  : SvgPicture.string(sendIcon.sendSVG, height: 40, width: 40),
             ),
         ],
       ),
@@ -342,7 +342,7 @@ class _EventSubmissionScreenState extends State<EventSubmissionScreen> {
                       children: [
                         CircularProgressIndicator(),
                         SizedBox(width: 16),
-                        Text('Đợi Wee kiểm tra ảnh 1 xíu nha...'),
+                        Text('Đợi Wee kiểm tra...'),
                       ],
                     ),
                   ),
@@ -467,8 +467,9 @@ class _EventSubmissionScreenState extends State<EventSubmissionScreen> {
               decoration: InputDecoration(
                 labelText: 'Mô tả bài đăng (tùy chọn)',
                 hintText: 'Viết gì đó về ảnh của bạn...',
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF3B6332))),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF3B6332))),
                 prefixIcon: const Icon(
                   Icons.edit,
                   color: Color(0xFF3B6332),

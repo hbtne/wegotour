@@ -268,7 +268,7 @@ class _CreateMinigameScreenState extends State<CreateMinigameScreen> {
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                     ),
-                    child: const Text('Câu hỏi trước'),
+                    child: const Text('Trước'),
                   ),
                   ElevatedButton(
                     onPressed: _nextQuestion,
@@ -280,7 +280,7 @@ class _CreateMinigameScreenState extends State<CreateMinigameScreen> {
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                     ),
-                    child: Text(isLastQuestion ? 'Thêm câu hỏi' : 'Câu hỏi tiếp theo'),
+                    child: Text(isLastQuestion ? 'Thêm câu hỏi' : 'Tiếp theo'),
                   ),
                 ],
               ),
