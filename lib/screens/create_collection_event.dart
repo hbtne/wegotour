@@ -136,8 +136,19 @@ class _CreateCollectionEventState extends State<CreateCollectionEvent> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('TẠO SỰ KIỆN', style: TextStyle(color: Color.fromRGBO(59, 99, 50, 1), fontWeight: FontWeight.bold)),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: const Color(0xFF4A5C3B)),
+          onPressed: () => Navigator.pop(context),
+        ),
         centerTitle: true,
+        title: Text(
+          'TẠO SỰ KIỆN',
+          style: TextStyle(
+            color: const Color(0xFF4A5C3B),
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

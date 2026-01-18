@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/call_service.dart';
@@ -31,6 +33,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
   final _db = FirebaseFirestore.instance;
   bool _isProcessing = false;
   final CallService callService = CallService();
+  StreamSubscription<DocumentSnapshot>? _callSub;
 
   Future<void> _accept({required bool audioOnly}) async {
     try {
@@ -59,6 +62,40 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
         builder: (_) => CallScreen(callId: widget.callId, audioOnly: audioOnly, isCaller: false, isConnected: true, calleeName: widget.callerName,),
       ));
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _listenCallStatus();
+  }
+
+  void _listenCallStatus() {
+    final collection = widget.isGroup ? 'group_calls' : 'calls';
+
+    _callSub = FirebaseFirestore.instance
+        .collection(collection)
+        .doc(widget.callId)
+        .snapshots()
+        .listen((doc) {
+      if (!doc.exists) return;
+
+      final status = doc.data()?['status'];
+
+      // Caller hủy / kết thúc trước khi callee bắt máy
+      if (status == 'cancelled' || status == 'ended') {
+        if (mounted) {
+          Navigator.of(context).pop(); // đóng dialog
+          widget.onFinish?.call();     // tắt ringtone, clear _shown
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _callSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _decline() async {

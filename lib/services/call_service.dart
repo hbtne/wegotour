@@ -160,6 +160,27 @@ class CallService {
     _remoteStream = null;
   }
 
+  void toggleMic(bool enable) {
+    final audioTracks = _localStream?.getAudioTracks();
+    if (audioTracks != null && audioTracks.isNotEmpty) {
+      audioTracks.first.enabled = enable;
+    }
+  }
+
+  void toggleVideo(bool enable) {
+    final videoTracks = _localStream?.getVideoTracks();
+    if (videoTracks != null && videoTracks.isNotEmpty) {
+      videoTracks.first.enabled = enable;
+    }
+  }
+
+  Future<void> switchCamera() async {
+    final videoTracks = _localStream?.getVideoTracks();
+    if (videoTracks != null && videoTracks.isNotEmpty) {
+      await Helper.switchCamera(videoTracks.first);
+    }
+  }
+
   // =================== CALLER ===================
 
   Future<void> startCall(
