@@ -1,17 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
 import 'package:stour/screens/group.dart';
 import 'package:stour/screens/list_group_message.dart';
+import 'package:stour/screens/collection_events.dart';
 import 'package:stour/widgets/item_post.dart';
 
 import '../services/auth_service.dart';
 import 'addPost_screen.dart';
 import '../assets/icons/group_feed_bar.dart';
 import '../assets/icons/chat_feed_bar.dart';
-
-import 'package:stour/screens/collection_events.dart';
 
 class Feeds extends StatefulWidget {
   const Feeds({super.key});
@@ -24,32 +24,43 @@ class _FeedsState extends State<Feeds> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Map<String, dynamic>? userData;
+
+  /// Cache user để không fetch lại khi scroll
   final Map<String, Map<String, dynamic>> _userCache = {};
-
-  Future<Map<String, dynamic>> _getUserCached(String uid) async {
-    if (_userCache.containsKey(uid)) return _userCache[uid]!;
-
-    final doc = await _firestore.collection('users').doc(uid).get();
-    final data = doc.data() ?? {};
-    _userCache[uid] = data;
-    return data;
-  }
 
   @override
   void initState() {
     super.initState();
-    _getUser();
+    _loadCurrentUser();
   }
 
-  Future<void> _getUser() async {
+  Future<void> _loadCurrentUser() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final doc = await _firestore.collection('users').doc(user.uid).get();
+    if (user == null) return;
 
-      setState(() {
-        userData = doc.data();
-      });
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    setState(() {
+      userData = doc.data();
+    });
+  }
+
+  /// Load user theo batch (1 future duy nhất)
+  Future<Map<String, Map<String, dynamic>>> _preloadUsers(
+      List<QueryDocumentSnapshot> posts,
+      ) async {
+    final authorIds = posts
+        .map((e) => e['authorId'])
+        .whereType<String>()
+        .toSet();
+
+    for (final uid in authorIds) {
+      if (_userCache.containsKey(uid)) continue;
+
+      final doc = await _firestore.collection('users').doc(uid).get();
+      _userCache[uid] = doc.data() ?? {};
     }
+
+    return _userCache;
   }
 
   @override
@@ -64,64 +75,27 @@ class _FeedsState extends State<Feeds> {
               stream: _firestore
                   .collection('posts')
                   .orderBy('createdAt', descending: true)
+                  .limit(30)
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                if (snapshot.hasError) {
-                  return Center(child: Text('Lỗi: ${snapshot.error}'));
+
+                if (!snapshot.hasData) {
+                  return const Center(child: Text('Không có dữ liệu'));
                 }
 
-                final docs = snapshot.data?.docs ?? [];
+                final docs = snapshot.data!.docs;
 
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  itemCount: docs.length + 1,
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return ListTile(
-                        leading: const Icon(Icons.local_offer, color: Color(0xFF3B6332)),
-                        title: const Text('Sự kiện sưu tầm', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF3B6332))),
-                        subtitle: const Text('Tham gia, đăng bài và nhận huy hiệu', style: TextStyle(color: Color(0xFF3B6332)),),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const CollectionEventsList()),
-                        ),
-                      );
+                return FutureBuilder<Map<String, Map<String, dynamic>>>(
+                  future: _preloadUsers(docs),
+                  builder: (context, userSnap) {
+                    if (!userSnap.hasData) {
+                      return const Center(child: CircularProgressIndicator());
                     }
 
-                    final postDoc = docs[index - 1];
-                    final data = postDoc.data() as Map<String, dynamic>;
-                    final currentUser = FirebaseAuth.instance.currentUser;
-                    final isLiked =
-                        currentUser != null && List<String>.from(data['likedBy'] ?? []).contains(currentUser.uid);
-                    return FutureBuilder<Map<String, dynamic>>(
-                      future: _getUserCached(data['authorId']),
-                      builder: (context, snap) {
-                        if (!snap.hasData) return const SizedBox();
-
-                        final user = snap.data!;
-                        return PostItem(
-                          postId: postDoc.id,
-                          groupId: data['groupId'] ?? '',
-                          groupName: data['groupName'] ?? '',
-                          content: data['content'] ?? '',
-                          imageUrls: List<String>.from(data['imageUrls'] ?? []),
-                          author: user['username'] ?? 'Không tên',
-                          timeAgo: data['createdAt'] as Timestamp,
-                          location: data['location'] ?? '',
-                          avatar: user['avatar'] ?? '',
-                          likes: data['likes'] ?? 0,
-                          comments: data['comments'] ?? 0,
-                          shares: data['shares'] ?? 0,
-                          authorId: data['authorId'],
-                          placeIds: List<String>.from(data['places'] ?? []),
-                          isLiked: isLiked,
-                          highlightCommentId: null,
-                        );
-                      },
-                    );
+                    return _buildFeedList(docs, userSnap.data!);
                   },
                 );
               },
@@ -131,6 +105,8 @@ class _FeedsState extends State<Feeds> {
       ),
     );
   }
+
+  // ================= UI =================
 
   AppBar _buildAppBar(BuildContext context) {
     return AppBar(
@@ -148,21 +124,22 @@ class _FeedsState extends State<Feeds> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const GroupsScreen()),
+            MaterialPageRoute(builder: (_) => const GroupsScreen()),
           );
         },
       ),
       actions: [
         IconButton(
-            icon: SvgPicture.string(chatFeedSVG, height: 30, width: 30),
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const GroupMessageScreen(),
-                ),
-              );
-            }),
+          icon: SvgPicture.string(chatFeedSVG, height: 30, width: 30),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const GroupMessageScreen(),
+              ),
+            );
+          },
+        ),
       ],
     );
   }
@@ -177,7 +154,8 @@ class _FeedsState extends State<Feeds> {
             backgroundColor: Colors.transparent,
             backgroundImage: avatarUrl != null
                 ? NetworkImage(avatarUrl)
-                : const AssetImage('assets/default_avatar.png') as ImageProvider,
+                : const AssetImage('assets/default_avatar.png')
+            as ImageProvider,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -186,7 +164,7 @@ class _FeedsState extends State<Feeds> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => AddPostScreen()),
+                  MaterialPageRoute(builder: (_) => AddPostScreen()),
                 );
               },
               decoration: InputDecoration(
@@ -194,16 +172,81 @@ class _FeedsState extends State<Feeds> {
                 filled: true,
                 fillColor: Colors.white,
                 contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
-                  borderSide: const BorderSide(color: Color(0xff2e582b)),
+                  borderSide:
+                  const BorderSide(color: Color(0xff2e582b)),
                 ),
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFeedList(
+      List<QueryDocumentSnapshot> docs,
+      Map<String, Map<String, dynamic>> users,
+      ) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      itemCount: docs.length + 1,
+      itemBuilder: (context, index) {
+        /// Header
+        if (index == 0) {
+          return ListTile(
+            leading: const Icon(Icons.local_offer,
+                color: Color(0xFF3B6332)),
+            title: const Text(
+              'Sự kiện sưu tầm',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF3B6332),
+              ),
+            ),
+            subtitle: const Text(
+              'Tham gia, đăng bài và nhận huy hiệu',
+              style: TextStyle(color: Color(0xFF3B6332)),
+            ),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const CollectionEventsList(),
+              ),
+            ),
+          );
+        }
+
+        final postDoc = docs[index - 1];
+        final data = postDoc.data() as Map<String, dynamic>;
+        final user = users[data['authorId']] ?? {};
+
+        final currentUid = AuthService.getCurrentUserId();
+        final isLiked = currentUid != null &&
+            List<String>.from(data['likedBy'] ?? [])
+                .contains(currentUid);
+
+        return PostItem(
+          postId: postDoc.id,
+          groupId: data['groupId'] ?? '',
+          groupName: data['groupName'] ?? '',
+          content: data['content'] ?? '',
+          imageUrls: List<String>.from(data['imageUrls'] ?? []),
+          author: user['username'] ?? 'Không tên',
+          avatar: user['avatar'] ?? '',
+          timeAgo: data['createdAt'],
+          location: data['location'] ?? '',
+          likes: data['likes'] ?? 0,
+          comments: data['comments'] ?? 0,
+          shares: data['shares'] ?? 0,
+          authorId: data['authorId'],
+          placeIds: List<String>.from(data['places'] ?? []),
+          isLiked: isLiked,
+          highlightCommentId: null,
+        );
+      },
     );
   }
 }
