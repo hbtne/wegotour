@@ -33,6 +33,9 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
   StreamSubscription<DocumentSnapshot>? _groupSub;
   StreamSubscription<QuerySnapshot>? _peerSub;
 
+  bool _micEnabled = false;
+  bool _videoEnabled = false;
+
   @override
   void initState() {
     super.initState();
@@ -125,7 +128,7 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
       body: Stack(
         children: [
           widget.audioOnly ? _audioUI() : _videoGrid(),
-          _endCallButton(),
+          _callControls(),
         ],
       ),
     );
@@ -205,21 +208,73 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
 
   // ================= END =================
 
-  Widget _endCallButton() => Positioned(
-    bottom: 50,
-    left: 100,
-    right: 100,
-    child: FloatingActionButton(
-      backgroundColor: Colors.red,
-      child: const Icon(Icons.call_end, size: 32),
-      onPressed: () async {
-        await FirebaseFirestore.instance
-            .collection('group_calls')
-            .doc(widget.groupCallId)
-            .update({'status': 'ended'});
+  Widget _callControls() => Positioned(
+    bottom: 40,
+    left: 0,
+    right: 0,
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
 
-        await _closeAndExit();
-      },
+        /// Mic
+        FloatingActionButton(
+          heroTag: 'mic',
+          backgroundColor: _micEnabled ? Colors.grey : Colors.white,
+          child: Icon(
+            _micEnabled ? Icons.mic_off : Icons.mic,
+            color: Colors.black,
+          ),
+          onPressed: () {
+            setState(() {
+              _micEnabled = !_micEnabled;
+              callService.toggleMic(!_micEnabled);
+            });
+          },
+        ),
+
+        /// End call
+        FloatingActionButton(
+          backgroundColor: Colors.red,
+          child: const Icon(Icons.call_end, size: 32),
+          onPressed: () async {
+            await FirebaseFirestore.instance
+                .collection('group_calls')
+                .doc(widget.groupCallId)
+                .update({'status': 'ended'});
+
+            await _closeAndExit();
+          },
+        ),
+
+        /// Video
+        if (!widget.audioOnly)
+          FloatingActionButton(
+            heroTag: 'video',
+            backgroundColor: _videoEnabled ? Colors.grey : Colors.white,
+            child: Icon(
+              _videoEnabled ? Icons.videocam_off : Icons.videocam,
+              color: Colors.black,
+            ),
+            onPressed: () {
+              setState(() {
+                _videoEnabled = !_videoEnabled;
+                callService.toggleVideo(!_videoEnabled);
+              });
+            },
+          ),
+
+        /// Switch camera
+        if (!widget.audioOnly)
+          FloatingActionButton(
+            heroTag: 'switch',
+            backgroundColor: Colors.white,
+            child: const Icon(Icons.cameraswitch, color: Colors.black),
+            onPressed: () async {
+              await callService.switchCamera();
+            },
+          ),
+      ],
     ),
   );
+
 }

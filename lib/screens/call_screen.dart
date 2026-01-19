@@ -31,8 +31,6 @@ class _CallScreenState extends State<CallScreen> {
 
   var isMicroOff = false;
   var isVideoOff = false;
-  var isCameraBack = false;
-  // bool _connected = false;
 
   @override
   void initState() {
@@ -129,7 +127,7 @@ class _CallScreenState extends State<CallScreen> {
             _audioUI()
           else
             _videoUI(),
-              _endCallButton(),
+              _callControls(),
         ],
       ),
     );
@@ -172,17 +170,69 @@ class _CallScreenState extends State<CallScreen> {
     ],
   );
 
-  Widget _endCallButton() => Positioned(
-    bottom: 50,
-    left: 100,
-    right: 100,
-    child: FloatingActionButton(
-        backgroundColor: Colors.red,
-        child: const Icon(Icons.call_end, size: 32),
-        onPressed: () async {
-          await callService.hangUp(widget.callId);
-          _closeAndExit();
-        },
-      ),
+  Widget _callControls() => Positioned(
+    bottom: 40,
+    left: 0,
+    right: 0,
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+
+        /// Mic
+        FloatingActionButton(
+          heroTag: 'mic',
+          backgroundColor: isMicroOff ? Colors.grey : Colors.white,
+          child: Icon(
+            isMicroOff ? Icons.mic_off : Icons.mic,
+            color: Colors.black,
+          ),
+          onPressed: () {
+            setState(() {
+              isMicroOff = !isMicroOff;
+              callService.toggleMic(!isMicroOff);
+            });
+          },
+        ),
+
+        /// End call
+        FloatingActionButton(
+          heroTag: 'end',
+          backgroundColor: Colors.red,
+          child: const Icon(Icons.call_end, size: 32),
+          onPressed: () async {
+            await callService.hangUp(widget.callId);
+            _closeAndExit();
+          },
+        ),
+
+        /// Video
+        if (!widget.audioOnly)
+          FloatingActionButton(
+            heroTag: 'video',
+            backgroundColor: isVideoOff ? Colors.grey : Colors.white,
+            child: Icon(
+              isVideoOff ? Icons.videocam_off : Icons.videocam,
+              color: Colors.black,
+            ),
+            onPressed: () {
+              setState(() {
+                isVideoOff = !isVideoOff;
+                callService.toggleVideo(!isVideoOff);
+              });
+            },
+          ),
+
+        /// Switch camera
+        if (!widget.audioOnly)
+          FloatingActionButton(
+            heroTag: 'switch',
+            backgroundColor: Colors.white,
+            child: const Icon(Icons.cameraswitch, color: Colors.black),
+            onPressed: () async {
+              await callService.switchCamera();
+            },
+          ),
+      ],
+    ),
   );
 }

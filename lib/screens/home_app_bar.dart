@@ -14,6 +14,7 @@ class HomeAppBar extends StatelessWidget {
       return Container(
           margin: const EdgeInsets.fromLTRB(10, 5, 10, 0), child: SearchCard());
     }
+    final Color primary = const Color(0xFF4A5C3B);
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -33,12 +34,9 @@ class HomeAppBar extends StatelessWidget {
             },
             child: Container(
               padding: const EdgeInsets.all(10),
-
               child:
                 SvgPicture.string(
                   voucherSVG,
-
-
               ),
             ),
           ),
@@ -49,11 +47,24 @@ class HomeAppBar extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (context) => Scaffold(
-                    appBar: AppBar(title: const Text("Search")),
+                    appBar: AppBar(
+                      leading: IconButton(
+                        icon: Icon(Icons.arrow_back, color: primary),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      centerTitle: true,
+                      title: Text(
+                        'TÌM KIẾM',
+                        style: TextStyle(
+                          color: primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                      ),
+                    ),
                     body: buildSearchBar(context),
                   ),
-
-              ),
+                ),
               );
             },
             child: Container(

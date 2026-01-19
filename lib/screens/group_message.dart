@@ -493,47 +493,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     const Color yellowBubble = Color(0xFFFFE7A6);
 
     return Scaffold(
+      appBar: _buildAppBar(context, widget.groupName.toUpperCase(), primary),
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
-            // --- HEADER ---
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: primary),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        widget.groupName.toUpperCase(),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 20,
-                          color: primary,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 48),
-                  IconButton(
-                    onPressed: () => _onCall(true),
-                    icon: Icon(Icons.phone, color: primary),
-                  ),
-                  IconButton(
-                      onPressed: () => _onCall(false),
-                      icon: Icon(Icons.videocam, color: primary,))
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 10),
-
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
@@ -633,4 +597,32 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       ),
     );
   }
+
+  AppBar _buildAppBar(BuildContext context, String groupName, Color primary) {
+    return AppBar(
+      backgroundColor: Colors.white,
+      centerTitle: true,
+      title: Text(
+        groupName,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: primary,
+        ),
+        overflow: TextOverflow.ellipsis,
+      ),
+      leading: IconButton(
+        icon: Icon(Icons.arrow_back, color: primary),
+        onPressed: () => Navigator.pop(context),
+      ),
+      actions: [
+        IconButton(
+            onPressed: () => _onCall(true),
+            icon: Icon(Icons.call, color: primary,)),
+        IconButton(
+            onPressed: () => _onCall(false),
+            icon: Icon(Icons.videocam, color: primary))
+      ],
+    );
+  }
+
 }

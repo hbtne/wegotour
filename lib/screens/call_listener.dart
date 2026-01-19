@@ -24,14 +24,14 @@ class CallListener {
     /// ===== 1–1 CALL =====
     _callSub = _db
         .collection('calls')
-        .where('status', isEqualTo: 'ringing')
         .where('status', whereIn: ['ringing', 'calling'])
+        .where('participants', arrayContains: uid)
         .snapshots()
         .listen((query) {
       for (var doc in query.docs) {
         _handleIncoming(
           callId: doc.id,
-          data: doc.data() as Map<String, dynamic>,
+          data: doc.data(),
           isGroup: false,
         );
       }
@@ -40,14 +40,14 @@ class CallListener {
     /// ===== GROUP CALL =====
     _groupCallSub = _db
         .collection('group_calls')
-        .where('status', isEqualTo: 'ringing')
+        .where('status', whereIn: ['ringing', 'calling'])
         .where('participants', arrayContains: uid)
         .snapshots()
         .listen((query) {
       for (var doc in query.docs) {
         _handleIncoming(
           callId: doc.id,
-          data: doc.data() as Map<String, dynamic>,
+          data: doc.data(),
           isGroup: true,
         );
       }
