@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -7,19 +9,25 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class GroupCallService {
-  final _db = FirebaseFirestore.instance;
-  final _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final Map<String, RTCPeerConnection> _peers = {};
+  final Map<String, MediaStream> _localStreams = {};
+  final Map<String, MediaStream> _remoteStreams = {};
   final Map<String, RTCVideoRenderer> remoteRenderers = {};
 
-  MediaStream? _localStream;
   final RTCVideoRenderer localRenderer = RTCVideoRenderer();
+  MediaStream? _previewStream;
+
   final username = dotenv.env['WEBRTC_USERNAME'];
   final password = dotenv.env['WEBRTC_PASSWORD'];
+
   bool _initialized = false;
+
   VoidCallback? onLocalStream;
   VoidCallback? onRemoteStream;
+
   // ================= INIT =================
 
   Future<void> initialize() async {
@@ -30,40 +38,34 @@ class GroupCallService {
 
   // ================= MEDIA =================
 
-  Future<void> _openUserMedia({required bool audioOnly}) async {
+  Future<MediaStream> _createLocalStream({required bool audioOnly}) async {
     if (!kIsWeb) {
-      await Permission.microphone.request();
-      if (!audioOnly) await Permission.camera.request();
+      final mic = await Permission.microphone.request();
+      final cam = audioOnly
+          ? PermissionStatus.granted
+          : await Permission.camera.request();
+
+      if (!mic.isGranted || (!audioOnly && !cam.isGranted)) {
+        throw Exception('Media permission denied');
+      }
     }
 
-    _localStream = await navigator.mediaDevices.getUserMedia({
+    final stream = await navigator.mediaDevices.getUserMedia({
       'audio': true,
-      'video': audioOnly ? false : {'facingMode': 'user'},
+      'video': audioOnly
+          ? false
+          : {
+        'facingMode': 'user',
+      },
     });
 
-    localRenderer.srcObject = _localStream;
+    return stream;
+  }
+
+  Future<void> _preparePreview({required bool audioOnly}) async {
+    _previewStream ??= await _createLocalStream(audioOnly: audioOnly);
+    localRenderer.srcObject = _previewStream;
     onLocalStream?.call();
-  }
-
-  void toggleMic(bool enable) {
-    final audioTracks = _localStream?.getAudioTracks();
-    if (audioTracks != null && audioTracks.isNotEmpty) {
-      audioTracks.first.enabled = enable;
-    }
-  }
-
-  void toggleVideo(bool enable) {
-    final videoTracks = _localStream?.getVideoTracks();
-    if (videoTracks != null && videoTracks.isNotEmpty) {
-      videoTracks.first.enabled = enable;
-    }
-  }
-
-  Future<void> switchCamera() async {
-    final videoTracks = _localStream?.getVideoTracks();
-    if (videoTracks != null && videoTracks.isNotEmpty) {
-      await Helper.switchCamera(videoTracks.first);
-    }
   }
 
   // ================= PEER =================
@@ -78,36 +80,47 @@ class GroupCallService {
             'turn:global.relay.metered.ca:443',
             'turns:global.relay.metered.ca:443'
           ],
-          'username': '$username',
-          'credential': '$password',
+          'username': username,
+          'credential': password,
         }
       ],
       'iceCandidatePoolSize': 10,
     });
 
-    pc.onConnectionState = (state) {
-      debugPrint('[$peerKey] state: $state');
+    pc.onIceConnectionState = (state) {
+      debugPrint('[$peerKey] ICE: $state');
     };
 
-    /// 🔥 GIỐNG CALL SERVICE
     pc.onTrack = (event) async {
-      final stream = event.streams.first;
+      if (event.track.kind != 'video') return;
 
-      remoteRenderers.putIfAbsent(peerKey, () => RTCVideoRenderer());
-      await remoteRenderers[peerKey]!.initialize();
-      remoteRenderers[peerKey]!.srcObject = stream;
+      debugPrint('🎥 Remote video from $peerKey');
+
+      // init renderer
+      if (!remoteRenderers.containsKey(peerKey)) {
+        final renderer = RTCVideoRenderer();
+        await renderer.initialize();
+        remoteRenderers[peerKey] = renderer;
+      }
+
+      // init remote stream (ASYNC-safe)
+      if (!_remoteStreams.containsKey(peerKey)) {
+        final stream = await createLocalMediaStream('remote_$peerKey');
+        _remoteStreams[peerKey] = stream;
+      }
+
+      _remoteStreams[peerKey]!.addTrack(event.track);
+      remoteRenderers[peerKey]!.srcObject = _remoteStreams[peerKey];
+
       onRemoteStream?.call();
-
-      debugPrint('✅ Remote ${event.track.kind} attached for $peerKey');
     };
 
     return pc;
   }
 
-  String _peerKey(String a, String b) =>
-      a.compareTo(b) < 0 ? '${a}_$b' : '${b}_$a';
+  String _peerKey(String a, String b) => '$a->$b';
 
-  // ================= START GROUP CALL (CALLER) =================
+  // ================= START GROUP CALL =================
 
   Future<void> startGroupCall(
       String groupCallId,
@@ -115,7 +128,7 @@ class GroupCallService {
         required bool audioOnly,
       }) async {
     await initialize();
-    await _openUserMedia(audioOnly: audioOnly);
+    await _preparePreview(audioOnly: audioOnly);
 
     final myUid = _auth.currentUser!.uid;
 
@@ -123,12 +136,15 @@ class GroupCallService {
       if (uid == myUid) continue;
 
       final key = _peerKey(myUid, uid);
+
       final pc = await _createPeer(key);
       _peers[key] = pc;
 
-      /// 🔥 COPY Y HỆT CALL SERVICE
-      for (final track in _localStream!.getTracks()) {
-        pc.addTrack(track, _localStream!);
+      final stream = await _createLocalStream(audioOnly: audioOnly);
+      _localStreams[key] = stream;
+
+      for (final track in stream.getTracks()) {
+        await pc.addTrack(track, stream);
       }
 
       pc.onIceCandidate = (c) {
@@ -143,11 +159,7 @@ class GroupCallService {
         }
       };
 
-      /// 🔥 OFFER GIỐNG 1–1
-      final offer = await pc.createOffer({
-        'offerToReceiveAudio': true,
-        'offerToReceiveVideo': !audioOnly,
-      });
+      final offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
       await _db
@@ -166,7 +178,7 @@ class GroupCallService {
     }
   }
 
-  // ================= ANSWER GROUP CALL (RECEIVER) =================
+  // ================= ANSWER GROUP CALL =================
 
   Future<void> answerGroupCall(
       String groupCallId,
@@ -174,7 +186,7 @@ class GroupCallService {
         required bool audioOnly,
       }) async {
     await initialize();
-    await _openUserMedia(audioOnly: audioOnly);
+    await _preparePreview(audioOnly: audioOnly);
 
     final doc = await _db
         .collection('group_calls')
@@ -189,8 +201,11 @@ class GroupCallService {
     final pc = await _createPeer(peerKey);
     _peers[peerKey] = pc;
 
-    for (final track in _localStream!.getTracks()) {
-      pc.addTrack(track, _localStream!);
+    final stream = await _createLocalStream(audioOnly: audioOnly);
+    _localStreams[peerKey] = stream;
+
+    for (final track in stream.getTracks()) {
+      await pc.addTrack(track, stream);
     }
 
     await pc.setRemoteDescription(
@@ -208,11 +223,7 @@ class GroupCallService {
       }
     };
 
-    /// 🔥 ANSWER GIỐNG 1–1
-    final answer = await pc.createAnswer({
-      'offerToReceiveAudio': true,
-      'offerToReceiveVideo': !audioOnly,
-    });
+    final answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
 
     await doc.reference.update({'answer': answer.toMap()});
@@ -231,15 +242,17 @@ class GroupCallService {
         .collection('callerCandidates')
         .snapshots()
         .listen((s) {
-      for (final d in s.docs) {
-        final c = d.data();
-        pc.addCandidate(
-          RTCIceCandidate(
-            c['candidate'],
-            c['sdpMid'],
-            c['sdpMLineIndex'],
-          ),
-        );
+      for (final d in s.docChanges) {
+        if (d.type == DocumentChangeType.added) {
+          final c = d.doc.data()!;
+          pc.addCandidate(
+            RTCIceCandidate(
+              c['candidate'],
+              c['sdpMid'],
+              c['sdpMLineIndex'],
+            ),
+          );
+        }
       }
     });
   }
@@ -253,15 +266,17 @@ class GroupCallService {
         .collection('receiverCandidates')
         .snapshots()
         .listen((s) {
-      for (final d in s.docs) {
-        final c = d.data();
-        pc.addCandidate(
-          RTCIceCandidate(
-            c['candidate'],
-            c['sdpMid'],
-            c['sdpMLineIndex'],
-          ),
-        );
+      for (final d in s.docChanges) {
+        if (d.type == DocumentChangeType.added) {
+          final c = d.doc.data()!;
+          pc.addCandidate(
+            RTCIceCandidate(
+              c['candidate'],
+              c['sdpMid'],
+              c['sdpMLineIndex'],
+            ),
+          );
+        }
       }
     });
   }
@@ -276,6 +291,7 @@ class GroupCallService {
         .listen((doc) async {
       final data = doc.data();
       if (data == null || data['answer'] == null) return;
+
       if (await pc.getRemoteDescription() != null) return;
 
       await pc.setRemoteDescription(
@@ -287,6 +303,33 @@ class GroupCallService {
     });
   }
 
+  // ================= MEDIA CONTROL =================
+
+  void toggleMic(bool enable) {
+    for (final s in _localStreams.values) {
+      for (final t in s.getAudioTracks()) {
+        t.enabled = enable;
+      }
+    }
+  }
+
+  void toggleVideo(bool enable) {
+    for (final s in _localStreams.values) {
+      for (final t in s.getVideoTracks()) {
+        t.enabled = enable;
+      }
+    }
+  }
+
+  Future<void> switchCamera() async {
+    for (final s in _localStreams.values) {
+      final videos = s.getVideoTracks();
+      if (videos.isNotEmpty) {
+        await Helper.switchCamera(videos.first);
+      }
+    }
+  }
+
   // ================= DISPOSE =================
 
   Future<void> dispose() async {
@@ -295,14 +338,28 @@ class GroupCallService {
     }
     _peers.clear();
 
-    _localStream?.getTracks().forEach((t) => t.stop());
-    await _localStream?.dispose();
+    for (final s in _localStreams.values) {
+      for (final t in s.getTracks()) {
+        t.stop();
+      }
+      await s.dispose();
+    }
+    _localStreams.clear();
+
+    for (final s in _remoteStreams.values) {
+      await s.dispose();
+    }
+    _remoteStreams.clear();
 
     for (final r in remoteRenderers.values) {
       await r.dispose();
     }
     remoteRenderers.clear();
 
+    _previewStream?.dispose();
+    _previewStream = null;
+
     await localRenderer.dispose();
+    _initialized = false;
   }
 }

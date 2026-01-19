@@ -40,7 +40,6 @@ class _GroupCallScreenState extends State<GroupCallScreen> {
   void initState() {
     super.initState();
 
-    /// 🔥 rebuild UI khi có remote video
     callService.onRemoteStream = () {
       if (mounted) setState(() {});
     };
